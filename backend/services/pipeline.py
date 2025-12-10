@@ -17,7 +17,11 @@ except ImportError:
 
 # Import diarization service
 try:
-    from .diarization import diarizer
+    try:
+        from .diarization import diarizer
+    except ImportError:
+        # Fallback for when run directly (not as package)
+        from diarization import diarizer
     DIARIZATION_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Diarization not available: {e}")

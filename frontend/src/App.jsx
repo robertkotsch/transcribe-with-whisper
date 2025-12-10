@@ -427,7 +427,7 @@ function App() {
                   {selectedJob.result?.speaker_transcript && (
                     <ResultCard
                       title="Speaker Transcript"
-                      description={`Multi-speaker content (${selectedJob.partial?.data?.num_speakers || 'N'} speakers)`}
+                      description={`Multi-speaker content (${selectedJob.result?.num_speakers || 1} speakers)`}
                       content={selectedJob.result.speaker_transcript}
                       onShow={() => setPreviewData({
                         title: "Speaker-Labeled Transcript",

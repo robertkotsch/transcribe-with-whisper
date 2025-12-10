@@ -77,6 +77,8 @@ def process_media_task(job_id: str, file_path: str, options: Dict[str, bool] = N
             if "vtt" in data: jobs[job_id]["result"]["vtt"] = data["vtt"]
             if "json" in data: jobs[job_id]["result"]["json"] = data["json"]
             if "netflix_srt" in data: jobs[job_id]["result"]["netflix_srt"] = data["netflix_srt"]
+            if "speaker_transcript" in data: jobs[job_id]["result"]["speaker_transcript"] = data["speaker_transcript"]
+            if "num_speakers" in data: jobs[job_id]["result"]["num_speakers"] = data["num_speakers"]
     
     def check_cancelled():
         """Check if job has been marked for cancellation."""

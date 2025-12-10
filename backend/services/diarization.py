@@ -31,13 +31,27 @@ class SpeakerDiarizer:
             
             logger.info("Initializing NeMo ClusteringDiarizer...")
             
-            # Create minimal configuration for diarization
-            # This uses NeMo's default models which are Apache 2.0 licensed
+            # NeMo expects the config to have 'diarizer' as the root key
+            # and internally accesses cfg.diarizer.* properties
+            import torch
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            
             config = {
+                'device': device,  # Required by NeMo for model loading
+                'num_workers': 0,  # Required for data loading
+                'sample_rate': 16000,
+                'batch_size': 64,
+                'verbose': True,
                 'diarizer': {
-                    'manifest_filepath': None,  # Will be set per-file
-                    'out_dir': None,  # Will be set per-file
-                    'oracle_vad': False,  # Use NeMo's VAD
+                    'manifest_filepath': None,
+                    'out_dir': None,
+                    'oracle_vad': False,
+                    'collar': 0.25,
+                    'ignore_overlap': True,
+                    'device': device,
+                    'num_workers': 0,
+                    'batch_size': 64,
+                    'verbose': True,
                     'clustering': {
                         'parameters': {
                             'oracle_num_speakers': False,
@@ -49,6 +63,9 @@ class SpeakerDiarizer:
                     },
                     'vad': {
                         'model_path': 'vad_multilingual_marblenet',
+                        'device': device,
+                        'num_workers': 0,
+                        'batch_size': 64,
                         'parameters': {
                             'window_length_in_sec': 0.15,
                             'shift_length_in_sec': 0.01,
@@ -65,17 +82,14 @@ class SpeakerDiarizer:
                     },
                     'speaker_embeddings': {
                         'model_path': 'titanet_large',
+                        'device': device,
+                        'num_workers': 0,
+                        'batch_size': 64,
                         'parameters': {
                             'window_length_in_sec': 1.5,
                             'shift_length_in_sec': 0.75,
-                            'multiscale_weights': [1.0, 0.5, 0.25],
-                            'multiscale_args': {
-                                'scale_dict': {
-                                    1: [1.5],
-                                    2: [1.5, 1.0],
-                                    3: [1.5, 1.0, 0.5]
-                                }
-                            }
+                            'multiscale_weights': [1.0, 1.0, 1.0],
+                            'save_embeddings': False
                         }
                     }
                 }
@@ -83,9 +97,9 @@ class SpeakerDiarizer:
             
             cfg = OmegaConf.create(config)
             
-            # Note: ClusteringDiarizer will download models on first use
-            # Models are cached in ~/.cache/torch/NeMo
-            self.diarizer = ClusteringDiarizer(cfg=cfg.diarizer)
+            # Pass FULL cfg (with diarizer key), NOT cfg.diarizer
+            # NeMo internally does cfg.diarizer.* access
+            self.diarizer = ClusteringDiarizer(cfg=cfg)
             self._initialized = True
             logger.info("NeMo ClusteringDiarizer initialized successfully")
             
@@ -175,9 +189,9 @@ class SpeakerDiarizer:
             # Create manifest file
             manifest_path = self.create_manifest(audio_path, output_path)
             
-            # Update diarizer config
-            self.diarizer._cfg.manifest_filepath = str(manifest_path)
-            self.diarizer._cfg.out_dir = str(output_path)
+            # Update diarizer config - use _cfg (internal config attribute)
+            self.diarizer._cfg.diarizer.manifest_filepath = str(manifest_path)
+            self.diarizer._cfg.diarizer.out_dir = str(output_path)
             
             # Run diarization
             self.diarizer.diarize()
@@ -204,7 +218,16 @@ class SpeakerDiarizer:
                     if len(parts) >= 8 and parts[0] == 'SPEAKER':
                         start_time = float(parts[3])
                         duration = float(parts[4])
-                        speaker = parts[7]
+                        raw_speaker = parts[7]
+                        
+                        # Normalize speaker label to SPEAKER_XX format
+                        # NeMo may output 'speaker_0' or 'SPEAKER_00' depending on version
+                        if raw_speaker.startswith('speaker_'):
+                            # Convert 'speaker_0' to 'SPEAKER_00'
+                            num = raw_speaker.replace('speaker_', '')
+                            speaker = f"SPEAKER_{int(num):02d}"
+                        else:
+                            speaker = raw_speaker
                         
                         segments.append({
                             'start': start_time,
