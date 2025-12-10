@@ -7,6 +7,7 @@ function App() {
   const [path, setPath] = useState('')
   const [jobs, setJobs] = useState([])
   const [selectedJob, setSelectedJob] = useState(null)
+  const [previewData, setPreviewData] = useState(null)
 
   // Options State
   const [showOptions, setShowOptions] = useState(false)
@@ -17,7 +18,8 @@ function App() {
     run_subtitles: true,
     run_audit: true,
     run_qa: true,
-    run_insights: true
+    run_insights: true,
+    run_diarization: false  // Speaker diarization (multi-speaker content)
   })
 
   useEffect(() => {
@@ -25,6 +27,30 @@ function App() {
     fetchJobs()
     return () => clearInterval(interval)
   }, [])
+
+  // Live Preview Logic
+  useEffect(() => {
+    if (!selectedJob || selectedJob.status !== 'processing') return
+
+    // Auto-update preview based on latest available artifact
+    // Check in reverse order of pipeline stages
+    if (selectedJob.result) {
+      if (selectedJob.result.srt) {
+        setPreviewData({ title: "Live: Subtitles Generated", content: "```srt\n" + selectedJob.result.srt + "\n```" })
+      } else if (selectedJob.result.refined_text) {
+        setPreviewData({ title: "Live: Refined Text", content: selectedJob.result.refined_text })
+      } else if (selectedJob.result.clean_text) {
+        setPreviewData({ title: "Live: Corrected Text", content: selectedJob.result.clean_text })
+      } else if (selectedJob.result.raw_text) {
+        setPreviewData({ title: "Live: Raw Transcription", content: selectedJob.result.raw_text })
+      }
+    } else if (selectedJob.partial) {
+      // If we have partial real-time updates (not currently fully implemented in backend but nice to have)
+      if (selectedJob.partial.raw_text) {
+        setPreviewData({ title: "Live: Transcribing...", content: selectedJob.partial.raw_text })
+      }
+    }
+  }, [selectedJob])
 
   const fetchJobs = async () => {
     try {
@@ -169,6 +195,10 @@ function App() {
                     <input type="checkbox" checked={options.run_insights} onChange={e => setOptions({ ...options, run_insights: e.target.checked })} />
                     Insight Report
                   </label>
+                  <label className="checkbox-item">
+                    <input type="checkbox" checked={options.run_diarization} onChange={e => setOptions({ ...options, run_diarization: e.target.checked })} />
+                    Speaker Diarization
+                  </label>
                 </div>
               </div>
             )}
@@ -208,104 +238,247 @@ function App() {
 
         {/* Right Panel: Viewer */}
         <section className="viewer-panel glass-panel">
-          {!selectedJob && (
+          {!selectedJob ? (
             <div className="placeholder-content">
               <FileVideo size={64} color="rgba(255,255,255,0.1)" />
               <p>Select a job to view insights</p>
             </div>
-          )}
-
-          {selectedJob && (
-            <div className="report-content">
-              <div className="report-header">
-                <div>
-                  <h2>{selectedJob.file_path.split('\\').pop()}</h2>
-                  {selectedJob.result?.language && (
-                    <span className="lang-badge">{selectedJob.result.language}</span>
+          ) : (
+            <>
+              {/* TOP: Preview Section */}
+              <div className="preview-section">
+                <div className="report-header">
+                  <div>
+                    <h2>{selectedJob.file_path.split('\\').pop()}</h2>
+                    {selectedJob.result?.language && (
+                      <span className="lang-badge">{selectedJob.result.language}</span>
+                    )}
+                  </div>
+                  {selectedJob.status === 'processing' && (
+                    <button
+                      className="btn-danger"
+                      onClick={(e) => handleCancel(selectedJob.job_id, e)}
+                    >
+                      Cancel Job
+                    </button>
                   )}
                 </div>
-                {selectedJob.status === 'processing' && (
-                  <button
-                    className="btn-danger"
-                    onClick={(e) => handleCancel(selectedJob.job_id, e)}
-                  >
-                    Cancel Job
-                  </button>
+
+                {/* Active Preview Content */}
+                {/* Show spinner only if processing AND no preview data yet */}
+                {(selectedJob.status === 'processing' || selectedJob.status === 'cancelling') && !previewData ? (
+                  <div className="processing-state">
+                    <Activity size={48} className="icon-pulse" />
+                    <h3>
+                      {selectedJob.status === 'cancelling'
+                        ? "Stopping..."
+                        : (selectedJob.partial?.stage
+                          ? `Stage: ${selectedJob.partial.stage.replace('_', ' ').toUpperCase()}`
+                          : 'Initializing AI Agents...')}
+                    </h3>
+                    <p className="sub-text">Processing locally on GPU...</p>
+                  </div>
+                ) : (
+                  <div className="markdown-content">
+                    {/* Default View or Selected Card Content */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h3>{previewData?.title || "Result Preview"}</h3>
+                      {/* Mini-spinner if still processing but showing data */}
+                      {selectedJob.status === 'processing' && (
+                        <div className="mini-status" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fbbf24' }}>
+                          <Activity size={16} className="spin" />
+                          <span style={{ fontSize: '0.8rem' }}>Processing...</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="content-box">
+                      {previewData?.content ? (
+                        <ReactMarkdown>{previewData.content}</ReactMarkdown>
+                      ) : (
+                        <div className="empty-preview">
+                          <p>Select a document card below to preview its content.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {selectedJob.error && (
+                  <div className="error-box">
+                    <h3>Error</h3>
+                    <p>{selectedJob.error}</p>
+                  </div>
                 )}
               </div>
 
-              {(selectedJob.status === 'processing' || selectedJob.status === 'cancelling') && (
-                <div className="processing-state">
-                  <Activity size={48} className="icon-pulse" />
-
-                  {/* Live Stage Indicator */}
-                  <h3>
-                    {selectedJob.status === 'cancelling'
-                      ? "Stopping..."
-                      : (selectedJob.partial?.stage
-                        ? `Stage: ${selectedJob.partial.stage.replace('_', ' ').toUpperCase()}`
-                        : 'Initializing AI Agents...')}
-                  </h3>
-
-                  {/* Live Language Detection */}
-                  {selectedJob.result?.language && (
-                    <div className="live-pill">
-                      Detected: {selectedJob.result.language}
-                    </div>
+              {/* BOTTOM: Documents Section */}
+              <div className="documents-section">
+                <h3>Result Documents</h3>
+                <div className="results-grid">
+                  {/* Refined Text Card */}
+                  {/* Raw Transcript Card */}
+                  {(selectedJob.result?.raw_text) && (
+                    <ResultCard
+                      title="Raw TXT"
+                      description="Original whisper transcription output"
+                      content={selectedJob.result.raw_text}
+                      onShow={() => setPreviewData({ title: "Raw Transcript", content: selectedJob.result.raw_text })}
+                    />
                   )}
 
-                  {/* Live Text Preview (Persisted) */}
-                  {(selectedJob.result?.refined_text || selectedJob.result?.raw_text) && (
-                    <div className="live-preview glass">
-                      <h4>
-                        {selectedJob.result.refined_text ? "Refined Transcript" : "Raw Transcript"}
-                      </h4>
-                      <p className="preview-text">
-                        {(selectedJob.result.refined_text || selectedJob.result.raw_text).substring(0, 500)}...
-                      </p>
-                    </div>
+                  {/* Corrected Transcript Card */}
+                  {(selectedJob.result?.clean_text) && (
+                    <ResultCard
+                      title="Clean TXT"
+                      description="Corrected grammar and punctuation"
+                      content={selectedJob.result.clean_text}
+                      onShow={() => setPreviewData({ title: "Corrected Transcript", content: selectedJob.result.clean_text })}
+                    />
                   )}
 
-                  {/* Live Analysis Preview */}
+                  {/* Refined Text Card */}
+                  {selectedJob.result?.refined_text && (
+                    <ResultCard
+                      title="Refined TXT"
+                      description="Polished for readability and flow"
+                      content={selectedJob.result.refined_text}
+                      onShow={() => setPreviewData({ title: "Refined Transcript", content: selectedJob.result.refined_text })}
+                    />
+                  )}
+
+                  {/* Summary Card */}
+                  {selectedJob.result?.summary && (
+                    <ResultCard
+                      title="Summary"
+                      description="Executive overview of key points"
+                      content={selectedJob.result.summary}
+                      onShow={() => setPreviewData({ title: "Executive Summary", content: selectedJob.result.summary })}
+                    />
+                  )}
+
+                  {/* Audit Card */}
                   {selectedJob.result?.audit && (
-                    <div className="live-preview glass">
-                      <h4>Audit Generating...</h4>
-                      <p className="preview-text">{selectedJob.result.audit.substring(0, 200)}...</p>
-                    </div>
+                    <ResultCard
+                      title="Audit"
+                      description="Content quality and accuracy report"
+                      content={selectedJob.result.audit}
+                      onShow={() => setPreviewData({ title: "Content Audit", content: selectedJob.result.audit })}
+                    />
                   )}
 
-                  <p className="sub-text">This processing happens locally on your GPU.</p>
-                </div>
-              )}
+                  {/* Q&A Card */}
+                  {selectedJob.result?.questions && (
+                    <ResultCard
+                      title="QA"
+                      description="Generated comprehension questions"
+                      content={selectedJob.result.questions}
+                      onShow={() => setPreviewData({ title: "Generated Questions", content: selectedJob.result.questions })}
+                    />
+                  )}
 
-              {selectedJob.result?.output_dir && (
-                <div className="results-container">
-                  {/* Here we would fetch the actual MD content. For v1, we show path info */}
-                  <div className="artifact-links">
-                    <p><strong>Output Location:</strong></p>
-                    <code>{selectedJob.result.output_dir}</code>
+                  {selectedJob.result?.answers && (
+                    <ResultCard
+                      title="Answers"
+                      description="AI-generated answers to questions"
+                      content={selectedJob.result.answers}
+                      onShow={() => setPreviewData({ title: "AI Answers", content: selectedJob.result.answers })}
+                    />
+                  )}
+
+                  {/* Additional Artifacts Cards */}
+                  {selectedJob.result?.json && (
+                    <ResultCard
+                      title="JSON"
+                      description="Full analysis data structure"
+                      content={selectedJob.result.json}
+                      onShow={() => setPreviewData({ title: "Raw JSON Data", content: "```json\n" + selectedJob.result.json + "\n```" })}
+                    />
+                  )}
+
+                  {selectedJob.result?.vtt && (
+                    <ResultCard
+                      title="VTT"
+                      description="Web Video Text Tracks subtitles"
+                      content={selectedJob.result.vtt}
+                      onShow={() => setPreviewData({ title: "WebVTT Subtitles", content: "```vtt\n" + selectedJob.result.vtt + "\n```" })}
+                    />
+                  )}
+
+                  {selectedJob.result?.srt && (
+                    <ResultCard
+                      title="SRT"
+                      description="Standard SubRip subtitle file"
+                      content={selectedJob.result.srt}
+                      onShow={() => setPreviewData({ title: "SRT Subtitles", content: "```srt\n" + selectedJob.result.srt + "\n```" })}
+                    />
+                  )}
+
+                  {selectedJob.result?.netflix_srt && (
+                    <ResultCard
+                      title="Netflix SRT"
+                      description="Netflix-compliant subtitle format"
+                      content={selectedJob.result.netflix_srt}
+                      onShow={() => setPreviewData({ title: "Netflix-Compliant Subtitles", content: "```srt\n" + selectedJob.result.netflix_srt + "\n```" })}
+                    />
+                  )}
+
+                  {/* Speaker Transcript Card */}
+                  {selectedJob.result?.speaker_transcript && (
+                    <ResultCard
+                      title="Speaker Transcript"
+                      description={`Multi-speaker content (${selectedJob.partial?.data?.num_speakers || 'N'} speakers)`}
+                      content={selectedJob.result.speaker_transcript}
+                      onShow={() => setPreviewData({
+                        title: "Speaker-Labeled Transcript",
+                        content: selectedJob.result.speaker_transcript
+                      })}
+                    />
+                  )}
+                </div>
+
+
+                {selectedJob.result?.output_dir && (
+                  <div className="results-container" style={{ marginTop: '2rem' }}>
+                    <div className="artifact-links">
+                      <p><strong>Output Location:</strong></p>
+                      <code style={{ fontSize: '0.8rem', opacity: 0.7 }}>{selectedJob.result.output_dir}</code>
+                    </div>
                   </div>
+                )}
 
-                  {/* Simple Markdown Preview Mock (In real app, we'd fetch the content) */}
-                  <div className="markdown-preview">
-                    <h3>Result Summary</h3>
-                    <p>Artifacts generated successfully. Open folder to view full reports.</p>
-                    {/* To make this real, we need an endpoint to Serve the file content */}
+                {selectedJob.error && (
+                  <div className="error-box">
+                    <h3>{selectedJob.status === 'cancelled' ? 'Cancelled' : 'Error'}</h3>
+                    <p>{selectedJob.error}</p>
                   </div>
-                </div>
-              )}
-
-              {selectedJob.error && (
-                <div className="error-box">
-                  <h3>{selectedJob.status === 'cancelled' ? 'Cancelled' : 'Error'}</h3>
-                  <p>{selectedJob.error}</p>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            </>
           )}
         </section>
 
       </main>
+    </div >
+  )
+}
+
+function ResultCard({ title, description, content, onShow }) {
+  // Clean up content for teaser (remove markdown roughly)
+  const cleanContent = content ? content.replace(/[#*`]/g, '').trim() : ""
+
+  return (
+    <div className="result-card-wrapper">
+      <div className="result-card">
+        <div className="card-title">{title}</div>
+        {description && <div className="card-desc">{description}</div>}
+        <div className="card-content-preview">
+          {cleanContent}
+        </div>
+      </div>
+      <button className="btn-show-me" onClick={onShow}>
+        SHOW ME
+      </button>
     </div>
   )
 }

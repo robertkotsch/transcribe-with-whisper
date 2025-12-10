@@ -64,11 +64,19 @@ def process_media_task(job_id: str, file_path: str, options: Dict[str, bool] = N
                 jobs[job_id]["result"]["raw_text"] = data["raw_text"]
             if "refined_text" in data:
                 jobs[job_id]["result"]["refined_text"] = data["refined_text"]
+            if "clean_text" in data:
+                jobs[job_id]["result"]["clean_text"] = data["clean_text"]
             # Also persist audit/summary if available
             if "audit" in data: jobs[job_id]["result"]["audit"] = data["audit"]
             if "summary" in data: jobs[job_id]["result"]["summary"] = data["summary"]
             if "questions" in data: jobs[job_id]["result"]["questions"] = data["questions"]
             if "answers" in data: jobs[job_id]["result"]["answers"] = data["answers"]
+            
+            # Additional Artifacts
+            if "srt" in data: jobs[job_id]["result"]["srt"] = data["srt"]
+            if "vtt" in data: jobs[job_id]["result"]["vtt"] = data["vtt"]
+            if "json" in data: jobs[job_id]["result"]["json"] = data["json"]
+            if "netflix_srt" in data: jobs[job_id]["result"]["netflix_srt"] = data["netflix_srt"]
     
     def check_cancelled():
         """Check if job has been marked for cancellation."""
@@ -87,7 +95,9 @@ def process_media_task(job_id: str, file_path: str, options: Dict[str, bool] = N
         )
         
         jobs[job_id]["status"] = "completed"
-        jobs[job_id]["result"] = result
+        # Merge final result (metadata) with accumulated partial results (content)
+        if not jobs[job_id].get("result"): jobs[job_id]["result"] = {}
+        jobs[job_id]["result"].update(result)
         print(f"Job {job_id} completed successfully.")
         
     except Exception as e:

@@ -6,3 +6,7 @@ ollama
 torch
 numpy
 ffmpeg-python
+pydantic
+nemo_toolkit[asr]
+omegaconf
+hydra-core

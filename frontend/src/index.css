@@ -7,15 +7,22 @@
   --text-main: #ffffff;
   --text-muted: #94a3b8;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Speaker label colors */
+  --speaker-0: #00f2ff;
+  --speaker-1: #f59e0b;
+  --speaker-2: #10b981;
+  --speaker-3: #8b5cf6;
+  --speaker-4: #ec4899;
+  --speaker-5: #3b82f6;
+  --speaker-6: #f97316;
+  --speaker-7: #14b8a6;
 }
 
 body {
   margin: 0;
   font-family: var(--font-sans);
   background-color: var(--bg-color);
-  background-image:
-    radial-gradient(circle at 10% 10%, rgba(56, 189, 248, 0.1) 0%, transparent 40%),
-    radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.1) 0%, transparent 40%);
   color: var(--text-main);
   min-height: 100vh;
   overflow-x: hidden;

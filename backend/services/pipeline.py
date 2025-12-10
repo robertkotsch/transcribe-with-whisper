@@ -2,8 +2,11 @@ import os
 import subprocess
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+import ollama
+import httpx
+from typing import Dict, Any, List, Optional
 
 # Try imports ensuring we handle missing dependencies gracefully
 try:
@@ -11,6 +14,14 @@ try:
     import ollama
 except ImportError:
     print("Warning: 'whisper' or 'ollama' module not found. Please pip install.")
+
+# Import diarization service
+try:
+    from .diarization import diarizer
+    DIARIZATION_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Diarization not available: {e}")
+    DIARIZATION_AVAILABLE = False
 
 class MediaPipeline:
     
@@ -85,12 +96,34 @@ class MediaPipeline:
         lang_code = metadata.get("language", "en")
         return "German" if lang_code == "de" else "English"
 
-    def ollama_generate(self, model: str, prompt: str) -> str:
-        """Wrapper for Ollama generation."""
+    def ollama_generate(self, model: str, prompt: str, output_format: str = None) -> str:
+        """Wrapper for Ollama generation with explicit timeout, context, and format."""
         try:
-            self.logger.info(f"Querying Ollama model: {model}")
-            response = ollama.generate(model=model, prompt=prompt)
-            return response.get("response", "")
+            self.logger.info(f"Querying Ollama model: {model} (Format: {output_format})")
+            url = "http://127.0.0.1:11434/api/generate"
+            payload = {
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "num_ctx": 4096,
+                    "num_predict": -1
+                }
+            }
+            if output_format == "json":
+                payload["format"] = "json"
+
+            # Set a long timeout (e.g., 5 minutes)
+            response = httpx.post(url, json=payload, timeout=300.0)
+            if response.status_code == 200:
+                resp_json = response.json()
+                if "response" not in resp_json:
+                    self.logger.error(f"Unexpected Ollama response: {resp_json}")
+                    return ""
+                return resp_json["response"]
+            else:
+                self.logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                return ""
         except Exception as e:
             self.logger.error(f"Ollama error: {e}")
             return ""
@@ -140,24 +173,188 @@ class MediaPipeline:
         output_dir = str(Path(output_path).parent)
         
         # We want to save plain .srt, .vtt, .tsv
-        # Whisper writer saves <audio_filename>.<format>
-        
+        # Whisper writer appends extension automatically if not present, but here we explicitly call them
         for fmt in ["srt", "vtt", "tsv"]:
             writer = get_writer(fmt, output_dir)
             writer(result, output_path)     
 
-    def generate_netflix_subtitles(self, srt_path: str, language: str) -> str:
-        """Use generic model to reformat SRT to Netflix standards."""
-        if not os.path.exists(srt_path): return ""
+    def generate_netflix_subtitles(self, target_path: str, language: str) -> str:
+        """
+        Deterministically reformat subtitles to Netflix standards using Python and Pydantic schema.
+        Source: Whisper raw JSON output (single source of truth).
+        Rules: Max 42 chars/line, Max 2 lines/block.
+        """
+        # target_path usually is the SRT or the JSON path. 
+        # In pipeline, we pass 'srt_path'. Let's find the corresponding JSON.
+        # srt_path: .../name.srt -> json_path: .../name.json
         
-        model = self.MODEL_MAP[language]["Subtitles"]
-        prompt = "Reformat to Netflix style: max 42 chars/line, 2 lines, 1-7s duration. Return valid .srt only."
-        content = Path(srt_path).read_text(encoding="utf-8")
-        
-        # Only process reasonable chunks to avoid context limits or weird hallucinations
-        # For simplicity in this port, we send the whole thing (assuming < 5 mins video)
-        # In prod, you'd chunk this.
-        return self.ollama_generate(model, f"{prompt}\n\n{content}")
+        json_path = target_path.replace('.srt', '.json')
+        if not os.path.exists(json_path):
+             self.logger.warning(f"Source JSON not found at {json_path}, falling back to SRT parsing.")
+             # Fallback logic could go here or we just fail/return empty
+             # For now, let's assume JSON exists as per standard pipeline
+             return ""
+
+        try:
+            from pydantic import BaseModel, Field
+            from typing import List, Optional
+            import json
+            import math
+
+            # Load Whisper Raw JSON
+            with open(json_path, 'r', encoding='utf-8') as f:
+                whisper_data = json.load(f)
+            
+            segments = whisper_data.get('segments', [])
+            if not segments: return ""
+
+            # --- NFLX-TT Schema Definition ---
+            class Metadata(BaseModel):
+                title: str = "Unknown"
+                language: str = "en"
+            class Style(BaseModel):
+                id: str
+                textAlign: str = "center"
+                fontFamily: str = "Arial"
+                fontSizePct: int = 100
+                color: str = "#FFFFFF"
+
+            class Origin(BaseModel):
+                x_pct: float
+                y_pct: float
+
+            class Extent(BaseModel):
+                width_pct: float
+                height_pct: float
+
+            class Layout(BaseModel):
+                id: str
+                displayAlign: str
+                origin: Origin
+                extent: Extent
+
+            class Subtitle(BaseModel):
+                id: str
+                begin: str
+                end: str
+                style: str
+                region: str
+                lines: List[str]
+
+            class NetflixTT(BaseModel):
+                metadata: Metadata
+                styles: List[Style]
+                layout: List[Layout]
+                subtitles: List[Subtitle]
+
+            # --- Formatting Logic ---
+            subtitles_list = []
+            
+            def format_time(t_sec):
+                h = int(t_sec // 3600)
+                m = int((t_sec % 3600) // 60)
+                s = int(t_sec % 60)
+                ms = int((t_sec * 1000) % 1000)
+                return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+            global_index = 1
+
+            for segment in segments:
+                t0 = segment.get('start', 0.0)
+                t1 = segment.get('end', 0.0)
+                text = segment.get('text', '').strip()
+                
+                if not text: continue
+
+                # Word wrap to 42 chars
+                words = text.split()
+                new_lines = []
+                current_line = []
+                current_len = 0
+                
+                for word in words:
+                    if current_len + len(word) + (1 if current_len > 0 else 0) <= 42:
+                        current_line.append(word)
+                        current_len += len(word) + (1 if current_len > 0 else 0)
+                    else:
+                        new_lines.append(" ".join(current_line))
+                        current_line = [word]
+                        current_len = len(word)
+                if current_line:
+                    new_lines.append(" ".join(current_line))
+                
+                # Strict 2-line enforce: Split event if > 2 lines
+                import math
+                num_exceeding = len(new_lines)
+                
+                if num_exceeding > 2:
+                    # Calculate how many 2-line blocks we need
+                    num_chunks = math.ceil(num_exceeding / 2.0)
+                    
+                    duration = t1 - t0
+                    chunk_dur = duration / num_chunks
+                    
+                    current_idx = 0
+                    for c in range(num_chunks):
+                        # Chunk logic
+                        chunk_lines = new_lines[current_idx : current_idx + 2]
+                        current_idx += 2
+                        
+                        chunk_start = t0 + (c * chunk_dur)
+                        chunk_end = t0 + ((c + 1) * chunk_dur)
+                        
+                        subtitles_list.append(Subtitle(
+                            id=str(global_index),
+                            begin=format_time(chunk_start).replace(',', '.'),
+                            end=format_time(chunk_end).replace(',', '.'),
+                            style="s1",
+                            region="bottom",
+                            lines=chunk_lines
+                        ))
+                        global_index += 1
+                else:
+                    subtitles_list.append(Subtitle(
+                        id=str(global_index),
+                        begin=format_time(t0).replace(',', '.'),
+                        end=format_time(t1).replace(',', '.'),
+                        style="s1",
+                        region="bottom",
+                        lines=new_lines
+                    ))
+                    global_index += 1
+
+            # Create full object
+            nflx_data = NetflixTT(
+                metadata=Metadata(title=Path(json_path).stem, language=language),
+                styles=[Style(id="s1")],
+                layout=[Layout(
+                    id="bottom", 
+                    displayAlign="after", 
+                    origin=Origin(x_pct=10, y_pct=80), 
+                    extent=Extent(width_pct=80, height_pct=20)
+                )],
+                subtitles=subtitles_list
+            )
+            
+            # Save JSON artifact
+            out_json_path = target_path.replace(".srt", "_netflix.json")
+            with open(out_json_path, "w", encoding="utf-8") as f:
+                f.write(nflx_data.model_dump_json(indent=2))
+
+            # Generate SRT output from the structured data
+            srt_output = []
+            for sub in nflx_data.subtitles:
+                # Convert time back to comma format for SRT
+                t_start = sub.begin.replace('.', ',')
+                t_end = sub.end.replace('.', ',')
+                text_block = "\n".join(sub.lines)
+                srt_output.append(f"{sub.id}\n{t_start} --> {t_end}\n{text_block}")
+            
+            return "\n\n".join(srt_output)
+
+        except Exception as e:
+            self.logger.error(f"Failed to generate Netflix TT: {e}")
+            return Path(target_path).read_text(encoding="utf-8", errors="ignore")
 
     def generate_questions(self, text: str, language: str) -> str:
         model = self.MODEL_MAP[language]["Questions"]
@@ -225,6 +422,7 @@ class MediaPipeline:
         should_audit = options.get("run_audit", True)
         should_qa = options.get("run_qa", True)
         should_insights = options.get("run_insights", True)
+        should_diarize = options.get("run_diarization", False)  # Opt-in feature
         
         skip_existing = options.get("skip_existing", False)
         
@@ -281,7 +479,7 @@ class MediaPipeline:
                 raw_text = result["text"]
                 self.generate_outputs(result, str(wav_path))
         
-        # 3. Language Detection (Need result or loaded json)
+        # 3. Language Detection
         language = "English"
         if result:
             language = self.detect_language(result)
@@ -292,9 +490,87 @@ class MediaPipeline:
                  with open(json_path, "r", encoding="utf-8") as f:
                      loaded = json.load(f)
                      language = self.detect_language(loaded)
-        
+                     result = loaded # Ensure we have result for JSON card
+
         self.logger.info(f"Detected Language: {language}")
-        notify("transcription_complete", {"language": language, "raw_text": raw_text})
+        
+        # Collect generated artifact content
+        transcription_data = {"language": language, "raw_text": raw_text}
+        
+        # SRT
+        if srt_path.exists():
+            transcription_data["srt"] = srt_path.read_text(encoding="utf-8")
+            
+        # VTT
+        vtt_path = output_dir / f"{base_name}.vtt"
+        if vtt_path.exists():
+            transcription_data["vtt"] = vtt_path.read_text(encoding="utf-8")
+            
+        # JSON
+        if result:
+             transcription_data["json"] = json.dumps(result, indent=2)
+
+        notify("transcription_complete", transcription_data)
+
+        # 3.5. Speaker Diarization (Optional)
+        diarization_result = None
+        speaker_transcript = ""
+        
+        check_cancel()
+        
+        if should_diarize and DIARIZATION_AVAILABLE and result:
+            speaker_json_path = output_dir / f"{base_name}_speakers.json"
+            speaker_txt_path = output_dir / f"{base_name}_speaker_transcript.txt"
+            speaker_srt_path = output_dir / f"{base_name}_speaker_transcript.srt"
+            
+            if skip_existing and speaker_json_path.exists():
+                notify("skipping_diarization")
+                # Load existing diarization
+                try:
+                    with open(speaker_json_path, 'r') as f:
+                        diarization_result = json.load(f)
+                    if speaker_txt_path.exists():
+                        speaker_transcript = speaker_txt_path.read_text(encoding="utf-8")
+                except Exception as e:
+                    self.logger.warning(f"Could not load existing diarization: {e}")
+            elif wav_path.exists():
+                try:
+                    notify("diarizing")
+                    # Run diarization
+                    diarization_result = diarizer.diarize(str(wav_path), str(output_dir))
+                    
+                    # Merge with Whisper result
+                    merged_result = diarizer.merge_with_transcript(diarization_result, result)
+                    
+                    # Save speaker JSON
+                    with open(speaker_json_path, 'w', encoding='utf-8') as f:
+                        json.dump(diarization_result, f, indent=2)
+                    
+                    # Generate speaker-labeled formats
+                    speaker_transcript = diarizer.format_speaker_transcript(merged_result, 'txt')
+                    speaker_txt_path.write_text(speaker_transcript, encoding='utf-8')
+                    
+                    speaker_srt = diarizer.format_speaker_transcript(merged_result, 'srt')
+                    speaker_srt_path.write_text(speaker_srt, encoding='utf-8')
+                    
+                    # Update result with speaker info
+                    result = merged_result
+                    
+                    self.logger.info(f"Diarization complete: {diarization_result.get('num_speakers', 0)} speakers detected")
+                    
+                except Exception as e:
+                    self.logger.error(f"Diarization failed: {e}")
+                    # Continue pipeline without diarization
+                    diarization_result = {"error": str(e)}
+            
+            if diarization_result:
+                notify("diarization_complete", {
+                    "speakers": diarization_result.get('speakers', []),
+                    "num_speakers": diarization_result.get('num_speakers', 0),
+                    "speaker_transcript": speaker_transcript
+                })
+        elif should_diarize and not DIARIZATION_AVAILABLE:
+            self.logger.warning("Diarization requested but not available (NeMo not installed)")
 
         # 4. Correction
         clean_path = output_dir / f"{base_name}_clean.txt"
@@ -332,18 +608,24 @@ class MediaPipeline:
                 if refined_path.exists(): refined = refined_path.read_text(encoding="utf-8")
         
         if refined:
-            notify("refinement_complete", {"refined_text": refined})
+            # Send both refined and corrected generic event or specific
+            notify("refinement_complete", {"refined_text": refined, "clean_text": corrected})
 
         # 6. Netflix Subtitles
         check_cancel()
         if should_subtitles:
             netflix_path = output_dir / f"{base_name}_netflix.srt"
+            netflix_srt = ""
             if skip_existing and netflix_path.exists():
                 notify("skipping_subtitles")
+                netflix_srt = netflix_path.read_text(encoding="utf-8")
             elif srt_path.exists():
                 notify("generating_subtitles")
                 netflix_srt = self.generate_netflix_subtitles(str(srt_path), language)
                 netflix_path.write_text(netflix_srt, encoding="utf-8")
+            
+            if netflix_srt:
+                notify("subtitles_complete", {"netflix_srt": netflix_srt})
 
         # 7. Analysis
         notify("analyzing")
@@ -415,7 +697,10 @@ class MediaPipeline:
                 f"{base_name}_refined_audit.md",
                 f"{base_name}_refined_summary.txt",
                 f"{base_name}_refined_questions.txt",
-                f"{base_name}_refined_answers.txt"
+                f"{base_name}_refined_answers.txt",
+                f"{base_name}_speakers.json",
+                f"{base_name}_speaker_transcript.txt",
+                f"{base_name}_speaker_transcript.srt"
             ]
         }
         notify("complete", final_result)
