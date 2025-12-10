@@ -127,11 +127,22 @@ class MediaPipeline:
         prompt = f"Summarize this {language} transcript into 5 bullet points.\n\n{text}"
         return self.ollama_generate(model, prompt)
 
-    def generate_subtitles(self, result: Dict[str, Any], output_path: str):
-        """Generate standard SRT using Whisper's writer."""
+    def generate_outputs(self, result: Dict[str, Any], output_path: str):
+        """Generate standard Whisper outputs (srt, vtt, tsv)."""
         from whisper.utils import get_writer
-        writer = get_writer("srt", str(Path(output_path).parent))
-        writer(result, str(output_path))     
+        
+        # Output directory is parent of the audio file in our structure? 
+        # Actually pipeline.py passes str(wav_path) as output_path.
+        # wav_path is .../output_dir/basename.wav
+        # So parent is output_dir.
+        output_dir = str(Path(output_path).parent)
+        
+        # We want to save plain .srt, .vtt, .tsv
+        # Whisper writer saves <audio_filename>.<format>
+        
+        for fmt in ["srt", "vtt", "tsv"]:
+            writer = get_writer(fmt, output_dir)
+            writer(result, output_path)     
 
     def generate_netflix_subtitles(self, srt_path: str, language: str) -> str:
         """Use generic model to reformat SRT to Netflix standards."""
@@ -217,8 +228,8 @@ class MediaPipeline:
         result = self.transcribe(str(wav_path), str(output_dir))
         raw_text = result["text"]
         
-        # Save Standard SRT
-        self.generate_subtitles(result, str(wav_path)) # Writes .srt to wav_path base
+        # Save Standard Outputs (SRT, VTT, TSV) to match Whisper CLI
+        self.generate_outputs(result, str(wav_path)) 
         srt_path = output_dir / f"{base_name}.srt"
         
         # 3. Language Detection
