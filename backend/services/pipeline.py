@@ -203,85 +203,205 @@ class MediaPipeline:
             
         return "\n".join(report)
 
-    def process_full_pipeline(self, video_path: str, progress_callback=None):
+    def process_full_pipeline(self, video_path: str, progress_callback=None, options: Dict[str, bool] = None, cancel_callback=None):
         """
         Orchestrate the entire flow.
         progress_callback: function(stage, data)
+        options: Dict with keys like 'run_transcription', 'skip_existing', etc.
+        cancel_callback: function returning bool, true if cancelled
         """
+        if options is None:
+            options = {}
+
+        # Default options (if not specified, perform the action)
+        # However, if ANY specific 'run_' flag is explicitly passed as True, 
+        # we might want to default others to False (like the PS script's $OnlyX logic).
+        # But for the API, it's cleaner to just respect the explicit booleans passed from UI.
+        # The UI will handle the "Only" logic by unchecking others.
+        
+        should_transcribe = options.get("run_transcription", True)
+        should_correct = options.get("run_correction", True)
+        should_subtitles = options.get("run_subtitles", True)
+        should_audit = options.get("run_audit", True)
+        should_qa = options.get("run_qa", True)
+        should_insights = options.get("run_insights", True)
+        
+        skip_existing = options.get("skip_existing", False)
+        
         def notify(stage, data=None):
             if progress_callback:
                 progress_callback(stage, data)
+        
+        def check_cancel():
+            if cancel_callback and cancel_callback():
+                notify("cancelled")
+                raise Exception("Job Cancelled by User")
 
         video_path = Path(video_path)
         base_name = video_path.stem
         output_dir = video_path.parent / base_name
         output_dir.mkdir(exist_ok=True)
         
+        check_cancel()
         notify("starting", {"output_dir": str(output_dir)})
 
-        # 1. Audio Extraction
+        # 1. Audio Extraction (Always needed if we plan to transcribe)
         wav_path = output_dir / f"{base_name}.wav"
-        if not wav_path.exists():
-            notify("extracting_audio")
-            self.extract_audio(str(video_path), str(wav_path))
+        if should_transcribe:
+            if wav_path.exists() and skip_existing:
+                notify("skipping_audio_extraction")
+            elif not wav_path.exists():
+                check_cancel()
+                notify("extracting_audio")
+                self.extract_audio(str(video_path), str(wav_path))
 
         # 2. Transcription
-        notify("transcribing")
-        result = self.transcribe(str(wav_path), str(output_dir))
-        raw_text = result["text"]
-        
-        # Save Standard Outputs (SRT, VTT, TSV) to match Whisper CLI
-        self.generate_outputs(result, str(wav_path)) 
         srt_path = output_dir / f"{base_name}.srt"
+        raw_text = ""
+        result = {}
         
-        # 3. Language Detection
-        language = self.detect_language(result)
+        check_cancel()
+        
+        if should_transcribe:
+            txt_path = output_dir / f"{base_name}.txt"
+            if skip_existing and txt_path.exists() and srt_path.exists():
+                notify("skipping_transcription")
+                # Load existing if available for downstream usage
+                try:
+                    raw_text = txt_path.read_text(encoding="utf-8")
+                    json_path = output_dir / f"{base_name}.json"
+                    if json_path.exists():
+                        with open(json_path, "r", encoding="utf-8") as f:
+                            result = json.load(f)
+                except:
+                    pass
+            else:
+                notify("transcribing")
+                result = self.transcribe(str(wav_path), str(output_dir))
+                raw_text = result["text"]
+                self.generate_outputs(result, str(wav_path))
+        
+        # 3. Language Detection (Need result or loaded json)
+        language = "English"
+        if result:
+            language = self.detect_language(result)
+        else:
+             # Try to load from JSON if we skipped transcription
+             json_path = output_dir / f"{base_name}.json"
+             if json_path.exists():
+                 with open(json_path, "r", encoding="utf-8") as f:
+                     loaded = json.load(f)
+                     language = self.detect_language(loaded)
+        
         self.logger.info(f"Detected Language: {language}")
         notify("transcription_complete", {"language": language, "raw_text": raw_text})
 
         # 4. Correction
-        notify("correcting")
-        corrected = self.correct_text(raw_text, language)
-        (output_dir / f"{base_name}_clean.txt").write_text(corrected, encoding="utf-8")
+        clean_path = output_dir / f"{base_name}_clean.txt"
+        corrected = ""
+        
+        check_cancel()
+        
+        if should_correct:
+            if skip_existing and clean_path.exists():
+                 notify("skipping_correction")
+                 corrected = clean_path.read_text(encoding="utf-8")
+            elif raw_text:
+                notify("correcting")
+                corrected = self.correct_text(raw_text, language)
+                clean_path.write_text(corrected, encoding="utf-8")
+            else:
+                 # Try load if exists even if we didn't just generate it
+                 if clean_path.exists(): corrected = clean_path.read_text(encoding="utf-8")
 
         # 5. Refinement
-        notify("refining")
-        refined = self.refine_text(corrected, language)
         refined_path = output_dir / f"{base_name}_refined.txt"
-        with open(refined_path, "w", encoding="utf-8") as f:
-            f.write(refined)
+        refined = ""
         
-        notify("refinement_complete", {"refined_text": refined})
+        check_cancel()
+        
+        if should_correct: # Linked to correction often, but could be separate. The PS keeps them somewhat tied or sequentiual.
+            if skip_existing and refined_path.exists():
+                notify("skipping_refinement")
+                refined = refined_path.read_text(encoding="utf-8")
+            elif corrected:
+                notify("refining")
+                refined = self.refine_text(corrected, language)
+                refined_path.write_text(refined, encoding="utf-8")
+            else:
+                if refined_path.exists(): refined = refined_path.read_text(encoding="utf-8")
+        
+        if refined:
+            notify("refinement_complete", {"refined_text": refined})
 
         # 6. Netflix Subtitles
-        if srt_path.exists():
-            notify("generating_subtitles")
-            netflix_srt = self.generate_netflix_subtitles(str(srt_path), language)
-            (output_dir / f"{base_name}_netflix.srt").write_text(netflix_srt, encoding="utf-8")
+        check_cancel()
+        if should_subtitles:
+            netflix_path = output_dir / f"{base_name}_netflix.srt"
+            if skip_existing and netflix_path.exists():
+                notify("skipping_subtitles")
+            elif srt_path.exists():
+                notify("generating_subtitles")
+                netflix_srt = self.generate_netflix_subtitles(str(srt_path), language)
+                netflix_path.write_text(netflix_srt, encoding="utf-8")
 
-        # 7. Analysis (Parallel-ish in concept, sequential here)
+        # 7. Analysis
         notify("analyzing")
         
-        audit = self.generate_audit(refined, language)
-        (output_dir / f"{base_name}_refined_audit.md").write_text(audit, encoding="utf-8")
-        notify("audit_complete", {"audit": audit})
+        # Audit
+        check_cancel()
+        if should_audit:
+            audit_path = output_dir / f"{base_name}_refined_audit.md"
+            audit = ""
+            if skip_existing and audit_path.exists():
+                audit = audit_path.read_text(encoding="utf-8")
+            elif refined:
+                audit = self.generate_audit(refined, language)
+                audit_path.write_text(audit, encoding="utf-8")
+            if audit: notify("audit_complete", {"audit": audit})
         
-        summary = self.generate_summary(refined, language)
-        (output_dir / f"{base_name}_refined_summary.txt").write_text(summary, encoding="utf-8")
-        notify("summary_complete", {"summary": summary})
+        # Summary (Usually part of insights/general analysis)
+        check_cancel()
+        if should_insights:
+            summary_path = output_dir / f"{base_name}_refined_summary.txt"
+            summary = ""
+            if skip_existing and summary_path.exists():
+                summary = summary_path.read_text(encoding="utf-8")
+            elif refined:
+                summary = self.generate_summary(refined, language)
+                summary_path.write_text(summary, encoding="utf-8")
+            if summary: notify("summary_complete", {"summary": summary})
         
-        questions = self.generate_questions(refined, language)
-        (output_dir / f"{base_name}_refined_questions.txt").write_text(questions, encoding="utf-8")
-        notify("questions_complete", {"questions": questions})
+        # Questions
+        check_cancel()
+        questions_path = output_dir / f"{base_name}_refined_questions.txt"
+        questions = ""
+        if should_qa:
+            if skip_existing and questions_path.exists():
+                questions = questions_path.read_text(encoding="utf-8")
+            elif refined:
+                questions = self.generate_questions(refined, language)
+                questions_path.write_text(questions, encoding="utf-8")
+            if questions: notify("questions_complete", {"questions": questions})
         
-        answers = self.generate_answers(refined, questions, language)
-        (output_dir / f"{base_name}_refined_answers.txt").write_text(answers, encoding="utf-8")
-        notify("answers_complete", {"answers": answers})
+        # Answers
+        check_cancel()
+        if should_qa and questions: # Answers depend on QA
+            answers_path = output_dir / f"{base_name}_refined_answers.txt"
+            answers = ""
+            if skip_existing and answers_path.exists():
+                answers = answers_path.read_text(encoding="utf-8")
+            elif refined:
+                answers = self.generate_answers(refined, questions, language)
+                answers_path.write_text(answers, encoding="utf-8")
+            if answers: notify("answers_complete", {"answers": answers})
 
         # 8. Compose Final Report
-        notify("composing")
-        insights = self.compose_insight_report(output_dir, base_name, language)
-        (output_dir / f"{base_name}_insights.md").write_text(insights, encoding="utf-8")
+        check_cancel()
+        if should_insights:
+            notify("composing")
+            insights = self.compose_insight_report(output_dir, base_name, language)
+            (output_dir / f"{base_name}_insights.md").write_text(insights, encoding="utf-8")
 
         final_result = {
             "status": "completed",

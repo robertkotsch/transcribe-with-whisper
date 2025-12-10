@@ -2,11 +2,12 @@ import asyncio
 import uuid
 from typing import Dict, List, Optional
 from pydantic import BaseModel
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
 import sys
+import shutil
 
 # Add services to path
 sys.path.append(os.path.join(os.path.dirname(__file__), "services"))
@@ -28,6 +29,7 @@ jobs: Dict[str, Dict] = {}
 
 class JobRequest(BaseModel):
     file_path: str
+    options: Optional[Dict[str, bool]] = None
 
 class JobStatus(BaseModel):
     job_id: str
@@ -39,7 +41,7 @@ class JobStatus(BaseModel):
 
 import time
 
-def process_media_task(job_id: str, file_path: str):
+def process_media_task(job_id: str, file_path: str, options: Dict[str, bool] = None):
     """Background task wrapper."""
     def progress_callback(stage: str, data: dict = None):
         """Update job status in real-time."""
@@ -67,22 +69,36 @@ def process_media_task(job_id: str, file_path: str):
             if "summary" in data: jobs[job_id]["result"]["summary"] = data["summary"]
             if "questions" in data: jobs[job_id]["result"]["questions"] = data["questions"]
             if "answers" in data: jobs[job_id]["result"]["answers"] = data["answers"]
+    
+    def check_cancelled():
+        """Check if job has been marked for cancellation."""
+        return jobs[job_id].get("status") == "cancelling"
 
     try:
         jobs[job_id]["status"] = "processing"
         print(f"Starting job {job_id} for {file_path}")
         
         # Call the pipeline with callback
-        result = pipeline.process_full_pipeline(file_path, progress_callback=progress_callback)
+        result = pipeline.process_full_pipeline(
+            file_path, 
+            progress_callback=progress_callback, 
+            options=options,
+            cancel_callback=check_cancelled
+        )
         
         jobs[job_id]["status"] = "completed"
         jobs[job_id]["result"] = result
         print(f"Job {job_id} completed successfully.")
         
     except Exception as e:
-        print(f"Job {job_id} failed: {e}")
-        jobs[job_id]["status"] = "failed"
-        jobs[job_id]["error"] = str(e)
+        if str(e) == "Job Cancelled by User":
+             print(f"Job {job_id} was cancelled.")
+             jobs[job_id]["status"] = "cancelled"
+             jobs[job_id]["error"] = "Cancelled by user"
+        else:
+             print(f"Job {job_id} failed: {e}")
+             jobs[job_id]["status"] = "failed"
+             jobs[job_id]["error"] = str(e)
 
 @app.post("/analyze", response_model=JobStatus)
 async def analyze_media(request: JobRequest, background_tasks: BackgroundTasks):
@@ -97,8 +113,57 @@ async def analyze_media(request: JobRequest, background_tasks: BackgroundTasks):
         "file_path": request.file_path
     }
     
-    background_tasks.add_task(process_media_task, job_id, request.file_path)
+    background_tasks.add_task(process_media_task, job_id, request.file_path, request.options)
     
+    return jobs[job_id]
+
+    return jobs[job_id]
+
+import tkinter as tk
+from tkinter import filedialog
+import threading
+
+def open_file_dialog():
+    """Runs the file dialog in a separate thread context."""
+    # Create invisible root window
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True) # Bring to front
+    
+    file_path = filedialog.askopenfilename(
+        title="Select Media File",
+        filetypes=[("Media Files", "*.mp4 *.mp3 *.wav *.mkv *.mov *.flac *.aac"), ("All Files", "*.*")]
+    )
+    
+    root.destroy()
+    return file_path
+
+@app.post("/pick-file")
+async def pick_file(background_tasks: BackgroundTasks):
+    """Triggers a native file picker on the server (user machine)."""
+    # Run the blocking GUI call in a thread
+    loop = asyncio.get_event_loop()
+    file_path = await loop.run_in_executor(None, open_file_dialog)
+    
+    if not file_path:
+        raise HTTPException(status_code=400, detail="No file selected")
+        
+    return {"file_path": file_path}
+
+
+@app.post("/cancel/{job_id}", response_model=JobStatus)
+async def cancel_job(job_id: str):
+    """Cancel a running job."""
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    current_status = jobs[job_id]["status"]
+    if current_status in ["completed", "failed", "cancelled"]:
+         return jobs[job_id] # Already done
+         
+    # Mark for cancellation
+    jobs[job_id]["status"] = "cancelling"
+    print(f"Job {job_id} marked for cancellation...")
     return jobs[job_id]
 
 @app.get("/jobs/{job_id}", response_model=JobStatus)
