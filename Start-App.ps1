@@ -28,6 +28,16 @@ else {
 # Install Backend Dependencies
 if (Test-Path "backend\requirements.txt") {
     Write-Host "Checking backend dependencies..."
+
+    # Check for CUDA availability
+    $cudaAvailable = & $pythonPath -c "import torch; print(torch.cuda.is_available())" 2>$null
+    
+    if ($cudaAvailable -ne "True") {
+        Write-Host "CUDA not detected. Installing PyTorch with CUDA support..." -ForegroundColor Yellow
+        & $pipPath uninstall -y torch torchvision torchaudio
+        & $pipPath install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    }
+
     & $pipPath install -r backend\requirements.txt | Out-Null
 }
 
@@ -50,11 +60,19 @@ Write-Host "All systems go!" -ForegroundColor Cyan
 Write-Host "OPEN BROWSER TO: http://localhost:5173" -ForegroundColor Yellow
 Write-Host "Press Ctrl+C to stop servers."
 
-# Keep script running to allow cleanup (simple version: just wait)
+# Keep script running to allow cleanup
 try {
+    # Wait for either process to exit (or script interruption)
     Wait-Process -Id $backendProcess.Id, $frontendProcess.Id
 }
 catch {
+    # If standard error occurs
+    Write-Host "Error during execution: $_" -ForegroundColor Red
+}
+finally {
+    # This block runs on exit, error, OR Ctrl+C
+    Write-Host "`nStopping services..." -ForegroundColor Yellow
     Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
     Stop-Process -Id $frontendProcess.Id -ErrorAction SilentlyContinue
+    Write-Host "Services stopped." -ForegroundColor Green
 }

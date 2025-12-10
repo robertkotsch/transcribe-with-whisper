@@ -42,8 +42,10 @@ class MediaPipeline:
 
     def _load_whisper(self, model_size="small"):
         if not self.whisper_model:
-            self.logger.info(f"Loading Whisper model: {model_size}")
-            self.whisper_model = whisper.load_model(model_size)
+            import torch
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.logger.info(f"Loading Whisper model: {model_size} on {device.upper()}")
+            self.whisper_model = whisper.load_model(model_size, device=device)
 
     def extract_audio(self, video_path: str, output_wav: str):
         """Extract audio using ffmpeg, similar to PS1 script."""
