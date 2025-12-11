@@ -23,16 +23,24 @@ The application employs a chain of local LLM argents (using **Ollama**) to progr
     *   Max 2 lines per subtitle block.
     *   Intelligent block splitting and timing adjustments.
 
-### 4. Deep Content Analysis
+### 4. Speaker Diarization (NEW)
+*   **NVIDIA NeMo Integration:** Identifies and labels different speakers in multi-speaker audio content.
+*   **Apache 2.0 Licensed:** Fully commercial-use friendly.
+*   **Automatic Detection:** Detects up to 8 speakers without manual configuration.
+*   **Merged Transcripts:** Speaker labels are aligned with Whisper's word-level timestamps.
+*   **Output Formats:** Generates speaker-labeled plain text and SRT subtitle files.
+*   **Color-Coded UI:** Each speaker displays with a distinct color badge in the frontend.
+
+### 5. Deep Content Analysis
 *   **Executive Summary:** Generates a concise 5-bullet point summary of the content.
 *   **Content Audit:** Produces a markdown report analyzing clarity, tone, bias, and information density.
 *   **Q&A Generation:** Automatically generates relevant questions based on the content and provides AI-generated answers, useful for educational or review purposes.
 *   **Insight Report:** Aggregates all analysis (Audit, Summary, Q&A) into a single cohesive Markdown document.
 
-### 5. Modern User Interface
+### 6. Modern User Interface
 *   **Real-Time Dashboard:** A "Glassmorphism" design React application providing live updates on job progress.
 *   **Live Preview:** Watch the transcription and refinement process happen in real-time.
-*   **Artifact Explorer:** Built-in viewer for all generated files (Raw Text, Refined Text, JSON Data, Subtitles, Reports).
+*   **Artifact Explorer:** Built-in viewer for all generated files (Raw Text, Refined Text, JSON Data, Subtitles, Speaker Transcripts, Reports).
 *   **Native Integration:** Uses system-native file pickers for easy file selection.
 *   **Job Management:** Cancel running jobs, view history, and retry tasks.
 
@@ -44,7 +52,8 @@ The application employs a chain of local LLM argents (using **Ollama**) to progr
 *   **AI/ML Libraries:**
     *   `openai-whisper`: Transcription core.
     *   `ollama`: Local LLM interface.
-    *   `torch`: PyTorch backend for Whisper.
+    *   `nemo_toolkit[asr]`: NVIDIA NeMo for speaker diarization.
+    *   `torch`: PyTorch backend for Whisper and NeMo.
     *   `ffmpeg-python`: Media processing.
 *   **Data Validation:** `pydantic` for robust schema definitions (esp. for Netflix subtitle validation).
 *   **Server:** `uvicorn` (ASGI server).
@@ -80,6 +89,7 @@ The application follows a **Client-Server** architecture tailored for local desk
     *   **Step 1:** `ffmpeg` extracts audio.
     *   **Step 2:** Whisper model loads into VRAM and transcribes.
     *   **Step 3:** JSON/SRT artifacts are written to disk.
+    *   **Step 3.5:** NeMo diarization identifies speakers (optional).
     *   **Step 4:** Ollama API is called for Correction/Refinement (Text -> LLM -> Text).
     *   **Step 5:** Python logic processes subtitles (Text -> Pydantic Models -> Netflix SRT).
     *   **Feedback:** Pipeline callback updates the in-memory job state, which the Frontend polls.
@@ -88,6 +98,7 @@ The application follows a **Client-Server** architecture tailored for local desk
 
 *   `backend/`: FastAPI application code.
     *   `services/pipeline.py`: Core logic for AI orchestration.
+    *   `services/diarization.py`: Speaker diarization service (NeMo).
     *   `main.py`: API endpoints.
 *   `frontend/`: React source code.
     *   `src/App.jsx`: Main dashboard component.

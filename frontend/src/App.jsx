@@ -19,7 +19,9 @@ function App() {
     run_audit: true,
     run_qa: true,
     run_insights: true,
-    run_diarization: false  // Speaker diarization (multi-speaker content)
+    run_diarization: false,  // Speaker diarization (multi-speaker content)
+    run_vlm: true,           // VLM visual analysis (enabled by default)
+    vlm_model: 'minicpm-v'   // Ollama vision model (MiniCPM-V best for technical content)
   })
 
   useEffect(() => {
@@ -199,7 +201,77 @@ function App() {
                     <input type="checkbox" checked={options.run_diarization} onChange={e => setOptions({ ...options, run_diarization: e.target.checked })} />
                     Speaker Diarization
                   </label>
+                  <label className="checkbox-item">
+                    <input type="checkbox" checked={options.run_vlm} onChange={e => setOptions({ ...options, run_vlm: e.target.checked })} />
+                    VLM Visual Analysis
+                  </label>
                 </div>
+                {/* VLM Sub-Options (only show when VLM enabled) */}
+                {options.run_vlm && (
+                  <div className="vlm-options" style={{
+                    marginTop: '1rem',
+                    paddingTop: '1rem',
+                    borderTop: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(100, 150, 255, 0.05)',
+                    padding: '1rem',
+                    borderRadius: '8px'
+                  }}>
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.9rem' }}>
+                        Vision Model Selection:
+                      </label>
+                      <select
+                        value={options.vlm_model}
+                        onChange={e => setOptions({ ...options, vlm_model: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          background: 'rgba(0,0,0,0.3)',
+                          border: '2px solid rgba(100, 150, 255, 0.3)',
+                          borderRadius: '6px',
+                          color: 'inherit',
+                          fontSize: '0.9rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="llava">LLaVA (default, balanced)</option>
+                        <option value="minicpm-v">MiniCPM-V (best for dense text/OCR)</option>
+                        <option value="llava:13b">LLaVA 13B (more capable, slower)</option>
+                        <option value="llava-phi3">LLaVA-Phi3 (newer architecture)</option>
+                        <option value="bakllava">BakLLaVA (alternative)</option>
+                      </select>
+                    </div>
+
+                    <div style={{
+                      fontSize: '0.75rem',
+                      lineHeight: '1.4',
+                      padding: '0.75rem',
+                      background: 'rgba(0,0,0,0.2)',
+                      borderRadius: '6px',
+                      borderLeft: '3px solid rgba(100, 150, 255, 0.5)'
+                    }}>
+                      <div style={{ fontWeight: '600', marginBottom: '0.5rem', color: 'rgba(100, 150, 255, 1)' }}>
+                        Model Guidance:
+                      </div>
+                      <div style={{ marginBottom: '0.4rem' }}>
+                        <strong>MiniCPM-V:</strong> Use for technical UIs, dashboards, screenshots with dense text. Avoid for simple slides or talking-head videos.
+                      </div>
+                      <div style={{ marginBottom: '0.4rem' }}>
+                        <strong>LLaVA 13B:</strong> Use when accuracy matters more than speed. Avoid if processing many long videos (slow).
+                      </div>
+                      <div style={{ marginBottom: '0.4rem' }}>
+                        <strong>LLaVA (default):</strong> Good all-rounder for training videos, presentations. Fast and reliable.
+                      </div>
+                      <div style={{ fontSize: '0.7rem', marginTop: '0.5rem', opacity: 0.7 }}>
+                        💡 Tip: Test different models on the same video to compare results
+                      </div>
+                    </div>
+
+                    <small style={{ display: 'block', marginTop: '0.75rem', opacity: 0.6, fontSize: '0.7rem' }}>
+                      Requires: ollama pull [model-name] (e.g., ollama pull minicpm-v)
+                    </small>
+                  </div>
+                )}
               </div>
             )}
 
@@ -249,7 +321,7 @@ function App() {
               <div className="preview-section">
                 <div className="report-header">
                   <div>
-                    <h2>{selectedJob.file_path.split('\\').pop()}</h2>
+                    <h2>{selectedJob.file_path?.split('\\').pop() || selectedJob.file_path || 'Unknown'}</h2>
                     {selectedJob.result?.language && (
                       <span className="lang-badge">{selectedJob.result.language}</span>
                     )}
@@ -432,6 +504,19 @@ function App() {
                       onShow={() => setPreviewData({
                         title: "Speaker-Labeled Transcript",
                         content: selectedJob.result.speaker_transcript
+                      })}
+                    />
+                  )}
+
+                  {/* VLM Visual Analysis Card */}
+                  {selectedJob.result?.vlm_stats && (
+                    <ResultCard
+                      title="Visual Analysis"
+                      description={`${selectedJob.result.vlm_stats.scenes_detected || 0} scenes, ${selectedJob.result.vlm_stats.corrections_made || 0} corrections`}
+                      content={`Analyzed ${selectedJob.result.vlm_stats.keyframes_analyzed || 0} keyframes, extracted ${selectedJob.result.vlm_stats.visual_terms || 0} visual terms`}
+                      onShow={() => setPreviewData({
+                        title: "VLM Visual Analysis",
+                        content: `## Visual Analysis Results\n\n- **Scenes Detected:** ${selectedJob.result.vlm_stats.scenes_detected || 0}\n- **Keyframes Analyzed:** ${selectedJob.result.vlm_stats.keyframes_analyzed || 0}\n- **Visual Terms Extracted:** ${selectedJob.result.vlm_stats.visual_terms || 0}\n- **Transcript Corrections:** ${selectedJob.result.vlm_stats.corrections_made || 0}\n\n*Check output folder for detailed visual.json and corrections.json*`
                       })}
                     />
                   )}

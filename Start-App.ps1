@@ -1,3 +1,7 @@
+# ========================================
+# Media Intelligence Station - Start Script
+# ========================================
+
 Write-Host "Starting Media Intelligence Station..." -ForegroundColor Cyan
 
 # Check dependencies
@@ -6,7 +10,16 @@ if (-not (Test-Path "backend\services\pipeline.py")) {
     exit
 }
 
-# Check/Create Virtual Environment
+# ========================================
+# VLM Note: OCR disabled
+# ========================================
+# PaddleOCR container removed due to serving setup issues.
+# VLM (Ollama llava) provides rich visual descriptions including text content.
+# To use VLM: ensure 'ollama pull llava' has been run.
+
+# ========================================
+# Python Virtual Environment
+# ========================================
 $venvPath = ".venv"
 $pythonPath = "python" # Default fallback
 $pipPath = "pip"
@@ -41,6 +54,10 @@ if (Test-Path "backend\requirements.txt") {
     & $pipPath install -r backend\requirements.txt | Out-Null
 }
 
+# ========================================
+# Start Services
+# ========================================
+
 # Start Backend
 Write-Host "Launching Backend (FastAPI)..." -ForegroundColor Green
 $backendProcess = Start-Process -FilePath $pythonPath -ArgumentList "-m uvicorn backend.main:app --reload --port 8000" -PassThru -NoNewWindow
@@ -74,5 +91,7 @@ finally {
     Write-Host "`nStopping services..." -ForegroundColor Yellow
     Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
     Stop-Process -Id $frontendProcess.Id -ErrorAction SilentlyContinue
+    # Note: We don't stop the PaddleOCR container - it can persist for next run
     Write-Host "Services stopped." -ForegroundColor Green
+    Write-Host "Note: PaddleOCR container left running. Stop manually: podman stop paddleocr" -ForegroundColor Gray
 }

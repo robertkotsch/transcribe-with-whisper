@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,7 +29,7 @@ jobs: Dict[str, Dict] = {}
 
 class JobRequest(BaseModel):
     file_path: str
-    options: Optional[Dict[str, bool]] = None
+    options: Optional[Dict[str, Any]] = None  # Changed from Dict[str, bool] to support mixed types
 
 class JobStatus(BaseModel):
     job_id: str
@@ -79,6 +79,15 @@ def process_media_task(job_id: str, file_path: str, options: Dict[str, bool] = N
             if "netflix_srt" in data: jobs[job_id]["result"]["netflix_srt"] = data["netflix_srt"]
             if "speaker_transcript" in data: jobs[job_id]["result"]["speaker_transcript"] = data["speaker_transcript"]
             if "num_speakers" in data: jobs[job_id]["result"]["num_speakers"] = data["num_speakers"]
+            
+            # VLM Visual Analysis Stats
+            if "scenes_detected" in data or "keyframes_analyzed" in data or "corrections_made" in data or "visual_terms" in data:
+                if "vlm_stats" not in jobs[job_id]["result"]:
+                    jobs[job_id]["result"]["vlm_stats"] = {}
+                if "scenes_detected" in data: jobs[job_id]["result"]["vlm_stats"]["scenes_detected"] = data["scenes_detected"]
+                if "keyframes_analyzed" in data: jobs[job_id]["result"]["vlm_stats"]["keyframes_analyzed"] = data["keyframes_analyzed"]
+                if "corrections_made" in data: jobs[job_id]["result"]["vlm_stats"]["corrections_made"] = data["corrections_made"]
+                if "visual_terms" in data: jobs[job_id]["result"]["vlm_stats"]["visual_terms"] = data["visual_terms"]
     
     def check_cancelled():
         """Check if job has been marked for cancellation."""

@@ -27,6 +27,23 @@ except ImportError as e:
     print(f"Warning: Diarization not available: {e}")
     DIARIZATION_AVAILABLE = False
 
+# Import VLM services
+try:
+    try:
+        from .scene_detector import scene_detector
+        from .visual_analyzer import visual_analyzer
+        from .transcript_enhancer import transcript_enhancer
+        from .report_generator import report_generator
+    except ImportError:
+        from scene_detector import scene_detector
+        from visual_analyzer import visual_analyzer
+        from transcript_enhancer import transcript_enhancer
+        from report_generator import report_generator
+    VLM_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: VLM services not available: {e}")
+    VLM_AVAILABLE = False
+
 class MediaPipeline:
     
     MODEL_MAP = {
@@ -427,6 +444,9 @@ class MediaPipeline:
         should_qa = options.get("run_qa", True)
         should_insights = options.get("run_insights", True)
         should_diarize = options.get("run_diarization", False)  # Opt-in feature
+        should_vlm = options.get("run_vlm", True)  # Default ON per user request
+        vlm_model = options.get("vlm_model", "minicpm-v")  # Ollama vision model (MiniCPM-V default - best for technical content)
+        scene_threshold = options.get("scene_threshold", 15.0)  # Scene detection sensitivity (lowered for more scenes)
         
         skip_existing = options.get("skip_existing", False)
         
@@ -516,7 +536,169 @@ class MediaPipeline:
 
         notify("transcription_complete", transcription_data)
 
-        # 3.5. Speaker Diarization (Optional)
+        # 3.5. VLM Visual Analysis (Default ON per user request)
+        visual_analyses = []
+        vlm_corrections = []
+        
+        check_cancel()
+        
+        # Check if this is a video file (has video track)
+        video_extensions = ['.mp4', '.mkv', '.mov', '.avi', '.webm', '.wmv']
+        is_video = video_path.suffix.lower() in video_extensions
+        
+        if should_vlm and VLM_AVAILABLE and is_video and result:
+            visual_json_path = output_dir / "visual.json"
+            corrections_json_path = output_dir / "corrections.json"
+            keyframes_dir = output_dir / "keyframes"
+            
+            if skip_existing and visual_json_path.exists() and corrections_json_path.exists():
+                notify("skipping_vlm")
+                # Load existing VLM results
+                try:
+                    with open(visual_json_path, 'r', encoding='utf-8') as f:
+                        visual_analyses = json.load(f)
+                    with open(corrections_json_path, 'r', encoding='utf-8') as f:
+                        vlm_corrections = json.load(f).get("corrections", [])
+                except Exception as e:
+                    self.logger.warning(f"Could not load existing VLM results: {e}")
+            else:
+                try:
+                    # Stage 1: Scene Detection
+                    notify("detecting_scenes", {"threshold": scene_threshold})
+                    scenes = scene_detector.detect_scenes(str(video_path), threshold=scene_threshold)
+                    
+                    if scenes:
+                        # Stage 2: Keyframe Extraction
+                        notify("extracting_keyframes", {"scene_count": len(scenes)})
+                        keyframes_dir.mkdir(parents=True, exist_ok=True)
+                        keyframe_paths = scene_detector.extract_keyframes(
+                            str(video_path), 
+                            scenes, 
+                            str(keyframes_dir)
+                        )
+                        
+                        # Stage 3: Visual Analysis (OCR + VLM)
+                        if keyframe_paths:
+                            notify("analyzing_visuals", {"keyframe_count": len(keyframe_paths)})
+                            
+                            # Configure VLM model if specified
+                            if vlm_model:
+                                visual_analyzer.vlm_model = vlm_model
+                            
+                            # Check if OCR container is available
+                            ocr_available = visual_analyzer.check_ocr_available()
+                            if not ocr_available:
+                                self.logger.warning("PaddleOCR container not running on localhost:8866 - skipping OCR")
+                                notify("vlm_warning", {"message": "OCR container not available"})
+                            
+                            # Analyze each keyframe
+                            timestamps = [s.mid_time for s in scenes]
+                            visual_analyses = visual_analyzer.analyze_all_keyframes(
+                                keyframe_paths,
+                                timestamps,
+                                run_vlm=visual_analyzer.check_vlm_available()
+                            )
+                            
+                            # Save visual analysis results
+                            with open(visual_json_path, 'w', encoding='utf-8') as f:
+                                json.dump(visual_analyses, f, indent=2, ensure_ascii=False)
+                            
+                            # Stage 4: Transcript Enhancement
+                            if visual_analyses:
+                                notify("enhancing_transcript", {"term_count": sum(len(v.get("extracted_terms", [])) for v in visual_analyses)})
+                                
+                                # Build vocabulary and enhance
+                                visual_vocab = transcript_enhancer.build_visual_vocabulary(visual_analyses)
+                                enhanced_result, corrections = transcript_enhancer.enhance_transcript(
+                                    result,
+                                    visual_vocab
+                                )
+                                
+                                # Update result with enhanced version
+                                if corrections:
+                                    result = enhanced_result
+                                    raw_text = result.get("text", raw_text)
+                                    vlm_corrections = [c.__dict__ if hasattr(c, '__dict__') else c for c in corrections]
+                                
+                                # Save corrections log
+                                transcript_enhancer.save_correction_log(
+                                    corrections,
+                                    str(corrections_json_path),
+                                    video_id=base_name
+                                )
+                                
+                                notify("vlm_complete", {
+                                    "scenes_detected": len(scenes),
+                                    "keyframes_analyzed": len(keyframe_paths),
+                                    "corrections_made": len(corrections),
+                                    "visual_terms": len(visual_vocab)
+                                })
+                    else:
+                        notify("vlm_warning", {"message": "No scenes detected in video"})
+                        
+                except Exception as e:
+                    self.logger.error(f"VLM processing failed: {e}")
+                    notify("vlm_error", {"error": str(e)})
+                    # Continue pipeline without VLM enhancement
+                    
+                # Generate reports if VLM completed successfully
+                if visual_json_path and visual_json_path.exists():
+                    try:
+                        notify("generating_reports", {"stage": "merged_json"})
+                        
+                        # Load visual analysis
+                        with open(visual_json_path, 'r', encoding='utf-8') as f:
+                            visual_analysis = json.load(f)
+                        
+                        # Load corrections
+                        corrections_data = []
+                        if corrections_json_path and corrections_json_path.exists():
+                            with open(corrections_json_path, 'r', encoding='utf-8') as f:
+                                corrections_data = json.load(f)
+                        
+                        # Prepare metadata for reports
+                        report_metadata = {
+                            "file_path": str(file_path),
+                            "duration": result.get("duration", 0),
+                            "vlm_model": vlm_model,
+                            "vlm_enabled": True,
+                            "keyframes_dir": str(keyframes_dir)
+                        }
+                        
+                        # Generate merged JSON
+                        merged_path = report_generator.generate_merged_json(
+                            output_dir=str(output_dir),
+                            transcript_segments=result.get("segments", []),
+                            visual_analysis=visual_analysis,
+                            corrections=corrections_data,
+                            metadata=report_metadata,
+                            result=result
+                        )
+                        result["merged_path"] = merged_path
+                        self.logger.info(f"Generated merged.json: {merged_path}")
+                        
+                        # Generate PDF report
+                        notify("generating_reports", {"stage": "pdf_report"})
+                        pdf_path = report_generator.generate_pdf_report(
+                            output_dir=str(output_dir),
+                            merged_json_path=merged_path,
+                            video_name=base_name
+                        )
+                        if pdf_path:
+                            result["pdf_report_path"] = pdf_path
+                            self.logger.info(f"Generated PDF report: {pdf_path}")
+                        
+                    except Exception as e:
+                        self.logger.error(f"Report generation failed: {e}")
+                        notify("report_error", {"error": str(e)})
+        
+        
+        elif should_vlm and not VLM_AVAILABLE:
+            self.logger.warning("VLM requested but services not available (missing dependencies)")
+        elif should_vlm and not is_video:
+            self.logger.info("VLM skipped - input is audio-only file")
+
+        # 3.6. Speaker Diarization (Optional)
         diarization_result = None
         speaker_transcript = ""
         
