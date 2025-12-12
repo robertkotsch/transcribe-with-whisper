@@ -138,8 +138,6 @@ async def analyze_media(request: JobRequest, background_tasks: BackgroundTasks):
     
     return jobs[job_id]
 
-    return jobs[job_id]
-
 import tkinter as tk
 from tkinter import filedialog
 import threading
@@ -200,6 +198,15 @@ async def list_jobs():
 @app.get("/")
 def read_root():
     return {"status": "Media Pipeline Backend is Running"}
+
+from fastapi.responses import FileResponse
+
+@app.get("/file")
+async def get_file(path: str):
+    """Serve a local file."""
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

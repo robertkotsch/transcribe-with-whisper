@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Activity, FileVideo, CheckCircle, AlertCircle, Play, FileText, Search, Clock, Settings, FolderSearch } from 'lucide-react'
+import { Activity, FileVideo, CheckCircle, AlertCircle, Play, FileText, Search, Clock, Settings, FolderSearch, Microscope, Shield } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import './App.css'
 
@@ -117,15 +117,122 @@ function App() {
     }
   }
 
+
+  const handleFilePreview = async (type, path, title) => {
+    const backendUrl = `http://127.0.0.1:8000/file?path=${encodeURIComponent(path)}`
+
+    if (type === 'pdf') {
+      setPreviewData({ title, type: 'pdf', url: backendUrl })
+    } else if (type === 'json') {
+      try {
+        setPreviewData({ title, content: "Loading..." })
+        const res = await fetch(backendUrl)
+        if (!res.ok) throw new Error("Failed to load file")
+        const json = await res.json()
+        setPreviewData({
+          title,
+          content: "```json\n" + JSON.stringify(json, null, 2) + "\n```"
+        })
+      } catch (e) {
+        setPreviewData({ title, content: "Error loading file: " + e.message })
+      }
+    }
+  }
+
   return (
     <div className="container">
-      <header className="header glass">
-        <div className="logo-area">
-          <Activity className="icon-pulse" color="#00f2ff" />
-          <h1 className="heading-glow">Media Intelligence Station</h1>
+      <header className="header glass" style={{ height: 'auto', padding: '1rem 2rem' }}>
+        <div className="logo-area" style={{ alignItems: 'flex-start' }}>
+          <Microscope className="icon-pulse" color="#00f2ff" size={48} style={{ marginTop: '5px' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '1rem' }}>
+            <h1 className="heading-glow" style={{ marginBottom: '2px', fontSize: '1.8rem' }}>Media Intelligence Station</h1>
+            <span style={{ fontSize: '1rem', color: '#a5f3fc', letterSpacing: '0.5px', fontWeight: 500 }}>
+              Multimodal AI That Sees & Hears
+            </span>
+            <span style={{ fontSize: '0.8rem', opacity: 0.5, marginTop: '4px' }}>v1.0 • Robert Kotsch</span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginTop: '12px', fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)' }}>
+              <span style={{ fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>System Status:</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span> Whisper
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span> Ollama
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span> NeMo
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="status-badge">
-          System Online
+
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%', paddingBottom: '5px', alignItems: 'flex-end' }}>
+          <div className="status-badge" style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: '#4ade80',
+            borderColor: 'rgba(74, 222, 128, 0.3)',
+            background: 'rgba(74, 222, 128, 0.1)',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            fontSize: '0.9rem',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+          }}>
+            <span style={{ fontWeight: 600 }}>🔒 100% Local</span> • €0/min • 0 ☁️
+          </div>
+
+          {/* Advanced Status Indicators */}
+          <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '15px', fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
+            {/* Backend Health */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }} title="Backend API Connection">
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: jobs.length >= 0 ? '#4ade80' : '#f87171', boxShadow: '0 0 5px currentColor' }}></div>
+              <span>API Online</span>
+            </div>
+
+            <div style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.2)' }}></div>
+
+            {/* GPU & VRAM */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#a5f3fc' }}>
+              <Activity size={12} />
+              <span style={{ fontWeight: 600 }}>RTX 4090</span>
+            </div>
+            <div>24 GB VRAM</div>
+
+            <div style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.2)' }}></div>
+
+            {/* Queue Status */}
+            {selectedJob?.status === 'processing' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fbbf24', fontWeight: 600 }}>
+                <Activity size={12} className="spin" />
+                <span>Processing...</span>
+                <button
+                  onClick={(e) => handleCancel(selectedJob.job_id, e)}
+                  style={{
+                    marginLeft: '5px',
+                    background: 'rgba(248, 113, 113, 0.2)',
+                    border: '1px solid rgba(248, 113, 113, 0.4)',
+                    color: '#fca5a5',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '0.7rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '2px'
+                  }}
+                  title="Kill Process"
+                >
+                  KILL TASK
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', opacity: 0.7 }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8' }}></div>
+                <span>System Idle</span>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -151,10 +258,7 @@ function App() {
 
 
             <small className="hint">Enter local absolute path or browse to file</small>
-            <button onClick={handleAnalyze} className="btn-primary" style={{ marginTop: '1rem', width: '100%', justifyContent: 'center' }}>
-              <Play size={16} style={{ marginRight: 8 }} /> Analyze
-            </button>
-            {/* Options Toggle - Moved below hint */}
+            {/* Options Toggle */}
             <div className="settings-section">
               <button
                 className={`btn-toggle ${showOptions ? 'active' : ''}`}
@@ -275,6 +379,10 @@ function App() {
               </div>
             )}
 
+            <button onClick={handleAnalyze} className="btn-primary" style={{ marginTop: '1rem', width: '100%', justifyContent: 'center' }}>
+              <Play size={16} style={{ marginRight: 8 }} /> Analyze
+            </button>
+
           </div>
 
           <div className="job-list">
@@ -351,9 +459,9 @@ function App() {
                     <p className="sub-text">Processing locally on GPU...</p>
                   </div>
                 ) : (
-                  <div className="markdown-content">
+                  <div className="preview-container" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     {/* Default View or Selected Card Content */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                       <h3>{previewData?.title || "Result Preview"}</h3>
                       {/* Mini-spinner if still processing but showing data */}
                       {selectedJob.status === 'processing' && (
@@ -364,15 +472,21 @@ function App() {
                       )}
                     </div>
 
-                    <div className="content-box">
-                      {previewData?.content ? (
-                        <ReactMarkdown>{previewData.content}</ReactMarkdown>
-                      ) : (
-                        <div className="empty-preview">
-                          <p>Select a document card below to preview its content.</p>
+                    {previewData?.type === 'pdf' ? (
+                      <iframe src={previewData.url} className="pdf-preview" title="PDF Report" />
+                    ) : (
+                      <div className="markdown-content">
+                        <div className="content-box">
+                          {previewData?.content ? (
+                            <ReactMarkdown>{previewData.content}</ReactMarkdown>
+                          ) : (
+                            <div className="empty-preview">
+                              <p>Select a document card below to preview its content.</p>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -518,6 +632,36 @@ function App() {
                         title: "VLM Visual Analysis",
                         content: `## Visual Analysis Results\n\n- **Scenes Detected:** ${selectedJob.result.vlm_stats.scenes_detected || 0}\n- **Keyframes Analyzed:** ${selectedJob.result.vlm_stats.keyframes_analyzed || 0}\n- **Visual Terms Extracted:** ${selectedJob.result.vlm_stats.visual_terms || 0}\n- **Transcript Corrections:** ${selectedJob.result.vlm_stats.corrections_made || 0}\n\n*Check output folder for detailed visual.json and corrections.json*`
                       })}
+                    />
+                  )}
+
+                  {/* Merged Data Card */}
+                  {selectedJob.result?.output_dir && (
+                    <ResultCard
+                      title="Merged Data"
+                      description="JSON with all combined data"
+                      content="Extended analysis data including subtitles, visual tags, and metadata."
+                      onShow={() => handleFilePreview('json', selectedJob.result.output_dir + '\\merged.json', 'Merged Data')}
+                    />
+                  )}
+
+                  {/* Visual JSON Card */}
+                  {selectedJob.result?.output_dir && (
+                    <ResultCard
+                      title="Visual Data"
+                      description="Raw visual analysis JSON"
+                      content="Detailed VLM analysis data including scenes, keyframes, and descriptions."
+                      onShow={() => handleFilePreview('json', selectedJob.result.output_dir + '\\visual.json', 'Visual Data')}
+                    />
+                  )}
+
+                  {/* PDF Report Card */}
+                  {selectedJob.result?.output_dir && (
+                    <ResultCard
+                      title="PDF Report"
+                      description="Visual summary report"
+                      content="Formatted PDF report with keyframes and extracted insights."
+                      onShow={() => handleFilePreview('pdf', selectedJob.result.output_dir + '\\report.pdf', 'PDF Report')}
                     />
                   )}
                 </div>

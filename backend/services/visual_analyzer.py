@@ -1,7 +1,7 @@
 """
 Visual Analyzer Service
 
-OCR extraction via Podman PaddleOCR container + VLM descriptions via Ollama.
+OCR extraction via EasyOCR + VLM descriptions via Ollama.
 Builds visual vocabulary for transcript enhancement.
 """
 
@@ -13,11 +13,11 @@ import requests
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, asdict
+import easyocr
 
 logger = logging.getLogger(__name__)
 
-# PaddleOCR container endpoint
-PADDLEOCR_URL = os.environ.get("PADDLEOCR_URL", "http://localhost:8866")
+
 
 # Ollama endpoint for VLM
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
@@ -44,30 +44,30 @@ class VisualAnalysis:
 
 class VisualAnalyzer:
     """
-    Analyze keyframes using OCR (PaddleOCR via Podman) and VLM (Ollama).
+    Analyze keyframes using OCR (EasyOCR) and VLM (Ollama).
     
     Requires:
-    - PaddleOCR container running on port 8866
+    - EasyOCR (installs models on first run)
     - Ollama with a vision model (llava, bakllava, etc.)
     """
     
     def __init__(
         self, 
-        ocr_url: str = PADDLEOCR_URL,
         ollama_url: str = OLLAMA_URL,
         vlm_model: str = "llava"
     ):
-        self.ocr_url = ocr_url
         self.ollama_url = ollama_url
         self.vlm_model = vlm_model
+        try:
+            logger.info("Initializing EasyOCR reader (en, de)...")
+            self.reader = easyocr.Reader(['en', 'de'])
+        except Exception as e:
+            logger.error(f"Failed to initialize EasyOCR: {e}")
+            self.reader = None
     
     def check_ocr_available(self) -> bool:
-        """Check if PaddleOCR container is running."""
-        try:
-            response = requests.get(f"{self.ocr_url}/", timeout=2)
-            return response.status_code == 200
-        except requests.RequestException:
-            return False
+        """Check if OCR is available."""
+        return self.reader is not None
     
     def check_vlm_available(self) -> bool:
         """Check if Ollama VLM model is available."""
@@ -82,20 +82,30 @@ class VisualAnalyzer:
     
     def run_ocr(self, image_path: str) -> List[OCRResult]:
         """
-        Run OCR on an image via PaddleOCR container.
-        
-        NOTE: OCR disabled. PaddleOCR container removed due to serving issues.
-        VLM provides rich descriptions including text content.
+        Run OCR on an image via EasyOCR.
         
         Args:
             image_path: Path to the image file.
             
         Returns:
-            Empty list (OCR disabled).
+            List of detected text elements.
         """
-        # OCR disabled - return empty list immediately
-        logger.debug(f"OCR skipped for {Path(image_path).name} (OCR disabled - using VLM only)")
-        return []
+        if not self.reader:
+            return []
+            
+        try:
+            results = self.reader.readtext(image_path)
+            ocr_results = []
+            for (bbox, text, prob) in results:
+                ocr_results.append(OCRResult(
+                    text=text,
+                    confidence=float(prob),
+                    bbox=[[int(p[0]), int(p[1])] for p in bbox]
+                ))
+            return ocr_results
+        except Exception as e:
+            logger.error(f"OCR failed for {image_path}: {e}")
+            return []
     
     def run_vlm(self, image_path: str, scene_type: str = "general") -> str:
         """

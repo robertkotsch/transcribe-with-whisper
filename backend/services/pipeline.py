@@ -99,7 +99,8 @@ class MediaPipeline:
         self._load_whisper()
         
         self.logger.info(f"Transcribing {audio_path}...")
-        result = self.whisper_model.transcribe(audio_path)
+        # Enable word_timestamps to get confidence scores for correction logic
+        result = self.whisper_model.transcribe(audio_path, word_timestamps=True)
         
         # Save raw text
         text_path = os.path.join(output_dir, Path(audio_path).stem + ".txt")
@@ -446,7 +447,7 @@ class MediaPipeline:
         should_diarize = options.get("run_diarization", False)  # Opt-in feature
         should_vlm = options.get("run_vlm", True)  # Default ON per user request
         vlm_model = options.get("vlm_model", "minicpm-v")  # Ollama vision model (MiniCPM-V default - best for technical content)
-        scene_threshold = options.get("scene_threshold", 15.0)  # Scene detection sensitivity (lowered for more scenes)
+        scene_threshold = options.get("scene_threshold", 10.0)  # Scene detection sensitivity (lowered for more scenes)
         
         skip_existing = options.get("skip_existing", False)
         
@@ -588,7 +589,7 @@ class MediaPipeline:
                             # Check if OCR container is available
                             ocr_available = visual_analyzer.check_ocr_available()
                             if not ocr_available:
-                                self.logger.warning("PaddleOCR container not running on localhost:8866 - skipping OCR")
+                                self.logger.warning("EasyOCR not initialized - skipping OCR")
                                 notify("vlm_warning", {"message": "OCR container not available"})
                             
                             # Analyze each keyframe
@@ -604,7 +605,7 @@ class MediaPipeline:
                                 json.dump(visual_analyses, f, indent=2, ensure_ascii=False)
                             
                             # Stage 4: Transcript Enhancement
-                            if visual_analyses:
+                            if visual_analyses and should_correct:
                                 notify("enhancing_transcript", {"term_count": sum(len(v.get("extracted_terms", [])) for v in visual_analyses)})
                                 
                                 # Build vocabulary and enhance
@@ -654,11 +655,11 @@ class MediaPipeline:
                         corrections_data = []
                         if corrections_json_path and corrections_json_path.exists():
                             with open(corrections_json_path, 'r', encoding='utf-8') as f:
-                                corrections_data = json.load(f)
+                                corrections_data = json.load(f).get("corrections", [])
                         
                         # Prepare metadata for reports
                         report_metadata = {
-                            "file_path": str(file_path),
+                            "file_path": str(video_path),
                             "duration": result.get("duration", 0),
                             "vlm_model": vlm_model,
                             "vlm_enabled": True,

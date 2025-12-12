@@ -40,13 +40,13 @@ class SceneDetector:
     between frames to detect cuts and scene transitions.
     """
     
-    def __init__(self, threshold: float = 27.0, min_scene_len: int = 15):
+    def __init__(self, threshold: float = 10.0, min_scene_len: int = 15):
         """
         Initialize the scene detector.
         
         Args:
             threshold: Scene detection sensitivity (lower = more sensitive).
-                      Default 27.0 works well for slides/explainer videos.
+                      Default 10.0 works well for slides/explainer videos.
             min_scene_len: Minimum scene length in frames to avoid false positives.
         """
         self.threshold = threshold

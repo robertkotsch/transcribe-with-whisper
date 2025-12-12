@@ -44,25 +44,60 @@ class ReportGenerator:
         
         # Build scene/timestamp lookup for visual data
         visual_by_time = {}
-        for visual in visual_analysis:
+        sorted_visual = sorted(visual_analysis, key=lambda x: x.get("timestamp", 0))
+        for visual in sorted_visual:
             timestamp = visual.get("timestamp", 0)
             visual_by_time[timestamp] = visual
         
-        # Build timeline entries
+        # Prepare scenes structure for report
+        scenes = []
+        for v in sorted_visual:
+            scenes.append({
+                "scene_index": v.get("scene_index"),
+                "timestamp": v.get("timestamp"),
+                "image_path": v.get("image_path"),
+                "description": v.get("vlm_description", ""),
+                "extracted_terms": v.get("extracted_terms", []),
+                "transcript_text": ""
+            })
+
+        # Build timeline entries AND populate scene transcripts
         timeline = []
         
         for segment in transcript_segments:
             start_time = segment.get("start", 0)
+            text = segment.get("text", "").strip()
             
             # Find closest visual analysis (within scene)
             closest_visual = None
             min_diff = float('inf')
-            for ts, visual in visual_by_time.items():
+            
+            # Also find index for "scenes" list
+            closest_scene_idx = -1
+            
+            for idx, (ts, visual) in enumerate(visual_by_time.items()):
                 diff = abs(ts - start_time)
                 if diff < min_diff:
                     min_diff = diff
                     closest_visual = visual
             
+            # Find closest scene in our scenes list
+            # Since both are based on same data, logical mapping should be robust
+            min_scene_diff = float('inf')
+            best_scene_match = None
+            for scene in scenes:
+                diff = abs(scene['timestamp'] - start_time)
+                if diff < min_scene_diff:
+                    min_scene_diff = diff
+                    best_scene_match = scene
+            
+            # Append text to scene
+            if best_scene_match:
+                if best_scene_match["transcript_text"]:
+                    best_scene_match["transcript_text"] += " " + text
+                else:
+                    best_scene_match["transcript_text"] = text
+
             # Find corrections for this segment
             segment_corrections = [
                 c for c in corrections 
@@ -108,6 +143,7 @@ class ReportGenerator:
                 "corrections_applied": len(corrections)
             },
             "timeline": timeline,
+            "scenes": scenes,  # New field for report.pdf
             "summary": {
                 "total_segments": len(transcript_segments),
                 "total_scenes": len(visual_analysis),
@@ -191,9 +227,10 @@ class ReportGenerator:
         heading_style = ParagraphStyle(
             'CustomHeading',
             parent=styles['Heading2'],
-            fontSize=14,
+            fontSize=16,
             textColor=colors.HexColor('#333333'),
-            spaceAfter=12
+            spaceAfter=12,
+            spaceBefore=12
         )
         
         # Title page
@@ -224,53 +261,54 @@ class ReportGenerator:
         ]))
         
         story.append(meta_table)
-        story.append(PageBreak())
         
-        # Timeline sections
-        story.append(Paragraph("Visual Timeline", title_style))
-        story.append(Spacer(1, 0.2*inch))
+        # Use scenes structure if available, otherwise fall back to timeline (but scenes is preferred)
+        scenes = data.get('scenes', [])
         
-        timeline = data.get('timeline', [])
-        for i, entry in enumerate(timeline):
-            if i >= 50:  # Limit to first 50 entries
-                story.append(Paragraph(f"... and {len(timeline) - 50} more entries", styles['Normal']))
-                break
+        if not scenes:
+            story.append(Spacer(1, 0.5*inch))
+            story.append(Paragraph("No scenes data found. Please regenerate merged JSON.", styles['Normal']))
+        
+        for i, scene in enumerate(scenes):
+            # One scene per page
+            story.append(PageBreak())
             
-            timestamp = entry.get('timestamp', 0)
-            transcript_text = entry.get('transcript', {}).get('text', '')
-            visual = entry.get('visual', {})
+            timestamp = scene.get('timestamp', 0)
+            transcript_text = scene.get('transcript_text', '')
             
-            # Section heading
-            story.append(Paragraph(f"Scene at {timestamp:.2f}s", heading_style))
+            # Scene Header
+            story.append(Paragraph(f"Scene {scene.get('scene_index', i+1)} - {timestamp:.2f}s", heading_style))
             
-            # Keyframe image (if exists)
-            keyframe_path = visual.get('keyframe_path', '')
+            # Keyframe image
+            keyframe_path = scene.get('image_path', '')
             if keyframe_path and os.path.exists(keyframe_path):
                 try:
-                    img = Image(keyframe_path, width=4*inch, height=3*inch, kind='proportional')
+                    # Maximize width to fit page margins (approx 7 inches available width)
+                    # Let's use 6 inches wide to look good
+                    img = Image(keyframe_path, width=6*inch, height=4.5*inch, kind='proportional')
                     story.append(img)
-                    story.append(Spacer(1, 0.1*inch))
+                    story.append(Spacer(1, 0.2*inch))
                 except Exception as e:
                     logger.warning(f"Could not embed image {keyframe_path}: {e}")
             
+            # Visual Analysis (Full Text)
+            description = scene.get('description', '')
+            if description:
+                story.append(Paragraph("<b>Visual Analysis:</b>", styles['Heading3']))
+                story.append(Paragraph(description, styles['Normal'])) # No truncation
+                story.append(Spacer(1, 0.15*inch))
+            
             # Transcript
             if transcript_text:
-                story.append(Paragraph(f"<b>Transcript:</b> {transcript_text}", styles['Normal']))
-                story.append(Spacer(1, 0.1*inch))
+                story.append(Paragraph("<b>Transcript:</b>", styles['Heading3']))
+                story.append(Paragraph(transcript_text, styles['Normal']))
+                story.append(Spacer(1, 0.15*inch))
             
-            # Visual description
-            description = visual.get('description', '')
-            if description:
-                story.append(Paragraph(f"<b>Visual Analysis:</b> {description[:200]}...", styles['Normal']))
-                story.append(Spacer(1, 0.1*inch))
-            
-            # Corrections
-            corrections = entry.get('corrections', [])
-            if corrections:
-                story.append(Paragraph(f"<b>Corrections:</b> {len(corrections)} applied", styles['Normal']))
-            
-            story.append(Spacer(1, 0.3*inch))
-        
+            # Extracted Terms (Optional)
+            terms = scene.get('extracted_terms', [])
+            if terms:
+                story.append(Paragraph(f"<b>Extracted Terms:</b> {', '.join(terms)}", styles['Normal']))
+
         # Build PDF
         doc.build(story)
         logger.info(f"Generated PDF report: {output_path}")
