@@ -32,10 +32,15 @@
 .PARAMETER MarkdownOutput
   Generate .md files instead of .txt for Audit, QA, and Insights
 
+.PARAMETER VramOverrideGB
+  Skip GPU auto-detection (via nvidia-smi) and use this VRAM amount (GB)
+  instead, e.g. for non-NVIDIA GPUs
+
 .EXAMPLE
   .\Transcribe-Folder.ps1 "C:\Media"
   .\Transcribe-Folder.ps1 "C:\Media" -SkipExisting
   .\Transcribe-Folder.ps1 "C:\Media" -OnlyQA -HighQualityQuestions -MarkdownOutput
+  .\Transcribe-Folder.ps1 "C:\Media" -VramOverrideGB 8
 #>
 
 param(
@@ -49,27 +54,72 @@ param(
   [switch]$OnlyQA,
   [switch]$OnlyInsights,
   [switch]$HighQualityQuestions,
-  [switch]$MarkdownOutput
+  [switch]$MarkdownOutput,
+  # Skip GPU auto-detection and use this VRAM amount (GB) instead, e.g. for
+  # non-NVIDIA GPUs where nvidia-smi isn't available.
+  [double]$VramOverrideGB
 )
+
+function Get-GpuVramGB {
+  if ($VramOverrideGB -gt 0) { return $VramOverrideGB }
+  try {
+    $raw = & nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null
+    if ($LASTEXITCODE -eq 0 -and $raw) {
+      $mb = [double]($raw | Select-Object -First 1)
+      return [math]::Round($mb / 1024, 1)
+    }
+  }
+  catch {}
+  return 0
+}
+
+$VramGB = Get-GpuVramGB
+
+# Pick a model tier that fits the detected (or overridden) VRAM. Falls back to
+# CPU-friendly small models when no usable NVIDIA GPU is found.
+if ($VramGB -ge 20) {
+  $WhisperModel = "large-v3-turbo"; $WhisperDevice = "cuda"
+  $CorrectionModel = "qwen3:32b"; $GeneralModel = "mistral-small3.2"
+}
+elseif ($VramGB -ge 12) {
+  $WhisperModel = "large-v3-turbo"; $WhisperDevice = "cuda"
+  $CorrectionModel = "qwen3:14b"; $GeneralModel = "gemma3:12b"
+}
+elseif ($VramGB -ge 8) {
+  $WhisperModel = "large-v3-turbo"; $WhisperDevice = "cuda"
+  $CorrectionModel = "qwen3:8b"; $GeneralModel = "gemma3:4b"
+}
+elseif ($VramGB -ge 4) {
+  $WhisperModel = "medium"; $WhisperDevice = "cuda"
+  $CorrectionModel = "qwen3:4b"; $GeneralModel = "qwen3:4b"
+}
+else {
+  $WhisperModel = "small"; $WhisperDevice = "cpu"
+  $CorrectionModel = "qwen3:4b"; $GeneralModel = "qwen3:4b"
+}
+$ComputeType = if ($WhisperDevice -eq "cuda") { "float16" } else { "int8" }
+
+Write-Host "GPU VRAM detected: $(if ($VramGB -gt 0) { "$VramGB GB" } else { 'none (CPU fallback)' })" -ForegroundColor Cyan
+Write-Host "Model tier -> Whisper: $WhisperModel ($WhisperDevice) | Correction: $CorrectionModel | General: $GeneralModel" -ForegroundColor Cyan
 
 $ModelMap = @{
   "German"  = @{
-    "Correction" = "qwen3:32b"
-    "Refinement" = "mistral-small3.2"
-    "Subtitles"  = "mistral-small3.2"
-    "Audit"      = "mistral-small3.2"
-    "Questions"  = "mistral-small3.2"
-    "Answers"    = "mistral-small3.2"
-    "Summary"    = "mistral-small3.2"
+    "Correction" = $CorrectionModel
+    "Refinement" = $GeneralModel
+    "Subtitles"  = $GeneralModel
+    "Audit"      = $GeneralModel
+    "Questions"  = $GeneralModel
+    "Answers"    = $GeneralModel
+    "Summary"    = $GeneralModel
   }
   "English" = @{
-    "Correction" = "qwen3:32b"
-    "Refinement" = "mistral-small3.2"
-    "Subtitles"  = "mistral-small3.2"
-    "Audit"      = "mistral-small3.2"
-    "Questions"  = "mistral-small3.2"
-    "Answers"    = "mistral-small3.2"
-    "Summary"    = "mistral-small3.2"
+    "Correction" = $CorrectionModel
+    "Refinement" = $GeneralModel
+    "Subtitles"  = $GeneralModel
+    "Audit"      = $GeneralModel
+    "Questions"  = $GeneralModel
+    "Answers"    = $GeneralModel
+    "Summary"    = $GeneralModel
   }
 }
 
@@ -471,8 +521,8 @@ foreach ($f in $videos) {
     else {
       Write-Host "Extracting audio..."
       ffmpeg -y -i $f.FullName -vn -acodec pcm_s16le -ar 16000 -ac 1 $wav 2>&1 | Out-Null
-      Write-Host "Running Whisper (large-v3-turbo)..."
-      whisper-ctranslate2 $wav --model large-v3-turbo --device cuda --compute_type float16 --output_format all --output_dir "$out"
+      Write-Host "Running Whisper ($WhisperModel on $WhisperDevice)..."
+      whisper-ctranslate2 $wav --model $WhisperModel --device $WhisperDevice --compute_type $ComputeType --output_format all --output_dir "$out"
     }
   }
 
