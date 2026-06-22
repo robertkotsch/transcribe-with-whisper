@@ -54,22 +54,22 @@ param(
 
 $ModelMap = @{
   "German"  = @{
-    "Correction" = "qwen2"
-    "Refinement" = "mistral"
-    "Subtitles"  = "mistral"
-    "Audit"      = "mistral"
-    "Questions"  = "mistral"
-    "Answers"    = "mistral"
-    "Summary"    = "mistral"
+    "Correction" = "qwen3:32b"
+    "Refinement" = "mistral-small3.2"
+    "Subtitles"  = "mistral-small3.2"
+    "Audit"      = "mistral-small3.2"
+    "Questions"  = "mistral-small3.2"
+    "Answers"    = "mistral-small3.2"
+    "Summary"    = "mistral-small3.2"
   }
   "English" = @{
-    "Correction" = "llama3"
-    "Refinement" = "mistral"
-    "Subtitles"  = "mistral"
-    "Audit"      = "mistral"
-    "Questions"  = "mistral"
-    "Answers"    = "mistral"
-    "Summary"    = "mistral"
+    "Correction" = "qwen3:32b"
+    "Refinement" = "mistral-small3.2"
+    "Subtitles"  = "mistral-small3.2"
+    "Audit"      = "mistral-small3.2"
+    "Questions"  = "mistral-small3.2"
+    "Answers"    = "mistral-small3.2"
+    "Summary"    = "mistral-small3.2"
   }
 }
 
@@ -421,8 +421,8 @@ if ($ShouldTranscribe) {
     Write-Host "ERROR: ffmpeg not found" -ForegroundColor Red
     exit 1
   }
-  if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-    Write-Host "ERROR: Python not found" -ForegroundColor Red
+  if (-not (Get-Command whisper-ctranslate2 -ErrorAction SilentlyContinue)) {
+    Write-Host "ERROR: whisper-ctranslate2 not found. Install with 'pip install whisper-ctranslate2'" -ForegroundColor Red
     exit 1
   }
 }
@@ -471,8 +471,8 @@ foreach ($f in $videos) {
     else {
       Write-Host "Extracting audio..."
       ffmpeg -y -i $f.FullName -vn -acodec pcm_s16le -ar 16000 -ac 1 $wav 2>&1 | Out-Null
-      Write-Host "Running Whisper..."
-      python -m whisper $wav --model small --device cuda --output_format all --output_dir "$out"
+      Write-Host "Running Whisper (large-v3-turbo)..."
+      whisper-ctranslate2 $wav --model large-v3-turbo --device cuda --compute_type float16 --output_format all --output_dir "$out"
     }
   }
 
