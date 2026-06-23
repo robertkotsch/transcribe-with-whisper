@@ -377,7 +377,6 @@ function App() {
                         <option value="qwen3-vl:8b">Qwen3-VL 8B (more accurate, needs ~12GB+)</option>
                         <option value="minicpm-v">MiniCPM-V 4.5 (dense document OCR)</option>
                         <option value="qwen3-vl:2b">Qwen3-VL 2B (low VRAM / fast)</option>
-                        <option value="llava">LLaVA (legacy, lightweight)</option>
                       </select>
                     </div>
 
