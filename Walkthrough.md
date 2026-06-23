@@ -46,6 +46,19 @@ tier. The backend reads it on startup (and falls back to built-in defaults if
 the file is missing). The active tier is shown in the dashboard header and via
 `GET /system`.
 
+### Checking for newer models
+Run the update checker to see whether the configured models are current and
+whether newer named versions exist in the Ollama registry (report-only):
+```powershell
+python backend/check_model_updates.py
+```
+It reports each configured model as *up to date*, *not installed*, or *UPDATE
+AVAILABLE*, and probes common version-bump patterns (e.g. `qwen3.5` -> `qwen3.6`).
+
+> The checker is a Python script, not a `Update-Models.ps1` flag, on purpose:
+> Windows Defender quarantines PowerShell scripts that download from a URL
+> (malware-downloader heuristic), so the registry calls live in Python instead.
+
 ### Updating models (e.g. when newer ones are released)
 1. Edit `backend/models.config.json` — change the `text` / `vlm` / `whisper`
    values for the relevant tier(s).
