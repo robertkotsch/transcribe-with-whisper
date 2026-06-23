@@ -71,7 +71,7 @@ if (-not (Test-Path "node_modules")) {
     Write-Host "Installing frontend dependencies..."
     pnpm install
 }
-$frontendProcess = Start-Process -FilePath "pnpm" -ArgumentList "run dev" -PassThru -NoNewWindow
+$frontendProcess = Start-Process -FilePath "pnpm.cmd" -ArgumentList "run dev" -PassThru -NoNewWindow
 
 Write-Host "All systems go!" -ForegroundColor Cyan
 Write-Host "OPEN BROWSER TO: http://localhost:5173" -ForegroundColor Yellow
