@@ -46,27 +46,27 @@ except ImportError as e:
 
 class MediaPipeline:
     
-    # Modern model tags, aligned with Transcribe-Folder.ps1's >=8GB VRAM tier
-    # (qwen3:8b correction + gemma3:4b general). qwen3 is multilingual, so it
-    # handles both German and English correction.
+    # qwen3.5:4b (Mar 2026) for every text step: 201-language coverage, 256K
+    # context, ~3.4GB so it fits 8GB VRAM alongside a resident Whisper model.
+    # A single model across steps avoids costly Ollama model-swapping mid-job.
     MODEL_MAP = {
         "German": {
-            "Correction": "qwen3:8b",
-            "Refinement": "gemma3:4b",
-            "Subtitles": "gemma3:4b",
-            "Audit": "gemma3:4b",
-            "Questions": "gemma3:4b",
-            "Answers": "gemma3:4b",
-            "Summary": "gemma3:4b"
+            "Correction": "qwen3.5:4b",
+            "Refinement": "qwen3.5:4b",
+            "Subtitles": "qwen3.5:4b",
+            "Audit": "qwen3.5:4b",
+            "Questions": "qwen3.5:4b",
+            "Answers": "qwen3.5:4b",
+            "Summary": "qwen3.5:4b"
         },
         "English": {
-            "Correction": "qwen3:8b",
-            "Refinement": "gemma3:4b",
-            "Subtitles": "gemma3:4b",
-            "Audit": "gemma3:4b",
-            "Questions": "gemma3:4b",
-            "Answers": "gemma3:4b",
-            "Summary": "gemma3:4b"
+            "Correction": "qwen3.5:4b",
+            "Refinement": "qwen3.5:4b",
+            "Subtitles": "qwen3.5:4b",
+            "Audit": "qwen3.5:4b",
+            "Questions": "qwen3.5:4b",
+            "Answers": "qwen3.5:4b",
+            "Summary": "qwen3.5:4b"
         }
     }
 
@@ -449,7 +449,7 @@ class MediaPipeline:
         should_insights = options.get("run_insights", True)
         should_diarize = options.get("run_diarization", False)  # Opt-in feature
         should_vlm = options.get("run_vlm", True)  # Default ON per user request
-        vlm_model = options.get("vlm_model", "minicpm-v")  # Ollama vision model (MiniCPM-V default - best for technical content)
+        vlm_model = options.get("vlm_model", "qwen3-vl:4b")  # Ollama vision model (Qwen3-VL 4B: 32-lang OCR, strong on tables/formulas, fits 8GB)
         scene_threshold = options.get("scene_threshold", 10.0)  # Scene detection sensitivity (lowered for more scenes)
         
         skip_existing = options.get("skip_existing", False)

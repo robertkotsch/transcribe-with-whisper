@@ -54,7 +54,7 @@ class VisualAnalyzer:
     def __init__(
         self, 
         ollama_url: str = OLLAMA_URL,
-        vlm_model: str = "llava"
+        vlm_model: str = "qwen3-vl:4b"
     ):
         self.ollama_url = ollama_url
         self.vlm_model = vlm_model

@@ -22,7 +22,7 @@ function App() {
     run_insights: true,
     run_diarization: false,  // Speaker diarization (multi-speaker content)
     run_vlm: true,           // VLM visual analysis (enabled by default)
-    vlm_model: 'minicpm-v'   // Ollama vision model (MiniCPM-V best for technical content)
+    vlm_model: 'qwen3-vl:4b' // Ollama vision model (Qwen3-VL 4B: 32-lang OCR, tables/formulas, fits 8GB)
   })
 
   useEffect(() => {
@@ -360,11 +360,10 @@ function App() {
                           cursor: 'pointer'
                         }}
                       >
-                        <option value="llava">LLaVA (default, balanced)</option>
-                        <option value="minicpm-v">MiniCPM-V (best for dense text/OCR)</option>
-                        <option value="llava:13b">LLaVA 13B (more capable, slower)</option>
-                        <option value="llava-phi3">LLaVA-Phi3 (newer architecture)</option>
-                        <option value="bakllava">BakLLaVA (alternative)</option>
+                        <option value="qwen3-vl:4b">Qwen3-VL 4B (default, best for 8GB)</option>
+                        <option value="minicpm-v">MiniCPM-V 4.5 (dense document OCR)</option>
+                        <option value="qwen3-vl:8b">Qwen3-VL 8B (more accurate, needs ~12GB)</option>
+                        <option value="llava">LLaVA (legacy, lightweight)</option>
                       </select>
                     </div>
 
@@ -380,13 +379,13 @@ function App() {
                         Model Guidance:
                       </div>
                       <div style={{ marginBottom: '0.4rem' }}>
-                        <strong>MiniCPM-V:</strong> Use for technical UIs, dashboards, screenshots with dense text. Avoid for simple slides or talking-head videos.
+                        <strong>Qwen3-VL 4B (default):</strong> Best all-rounder on 8GB GPUs. 32-language OCR (incl. German), strong on slides, tables, formulas and dense text.
                       </div>
                       <div style={{ marginBottom: '0.4rem' }}>
-                        <strong>LLaVA 13B:</strong> Use when accuracy matters more than speed. Avoid if processing many long videos (slow).
+                        <strong>MiniCPM-V 4.5:</strong> Specialist for dense document OCR — invoices, scanned pages, technical dashboards.
                       </div>
                       <div style={{ marginBottom: '0.4rem' }}>
-                        <strong>LLaVA (default):</strong> Good all-rounder for training videos, presentations. Fast and reliable.
+                        <strong>Qwen3-VL 8B:</strong> Higher accuracy on complex layouts, but needs ~12GB VRAM — may not fit an 8GB card.
                       </div>
                       <div style={{ fontSize: '0.7rem', marginTop: '0.5rem', opacity: 0.7 }}>
                         💡 Tip: Test different models on the same video to compare results
@@ -394,7 +393,7 @@ function App() {
                     </div>
 
                     <small style={{ display: 'block', marginTop: '0.75rem', opacity: 0.6, fontSize: '0.7rem' }}>
-                      Requires: ollama pull [model-name] (e.g., ollama pull minicpm-v)
+                      Requires: ollama pull [model-name] (e.g., ollama pull qwen3-vl:4b)
                     </small>
                   </div>
                 )}
