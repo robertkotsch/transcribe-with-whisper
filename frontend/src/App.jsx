@@ -22,7 +22,7 @@ function App() {
     run_insights: true,
     run_diarization: false,  // Speaker diarization (multi-speaker content)
     run_vlm: true,           // VLM visual analysis (enabled by default)
-    vlm_model: 'qwen3-vl:4b' // Ollama vision model (Qwen3-VL 4B: 32-lang OCR, tables/formulas, fits 8GB)
+    vlm_model: 'auto'        // 'auto' lets the backend pick a VLM matching the GPU's VRAM
   })
 
   useEffect(() => {
@@ -215,11 +215,23 @@ function App() {
             <div style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.2)' }}></div>
 
             {/* GPU & VRAM */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#a5f3fc' }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#a5f3fc' }}
+              title={systemInfo?.models ? `Auto-selected (${systemInfo.models.tier}): whisper ${systemInfo.models.whisper} · text ${systemInfo.models.text} · vlm ${systemInfo.models.vlm}` : undefined}
+            >
               <Activity size={12} />
               <span style={{ fontWeight: 600 }}>{systemInfo?.gpu || (systemInfo ? 'CPU' : '—')}</span>
             </div>
             <div>{systemInfo?.vram_gb ? `${systemInfo.vram_gb} GB VRAM` : (systemInfo && !systemInfo.cuda ? 'No GPU' : '—')}</div>
+
+            {systemInfo?.models && (
+              <>
+                <div style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.2)' }}></div>
+                <div style={{ opacity: 0.7 }} title={`Tier ${systemInfo.models.tier}`}>
+                  {systemInfo.models.text} · {systemInfo.models.vlm}
+                </div>
+              </>
+            )}
 
             <div style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.2)' }}></div>
 
@@ -360,9 +372,11 @@ function App() {
                           cursor: 'pointer'
                         }}
                       >
-                        <option value="qwen3-vl:4b">Qwen3-VL 4B (default, best for 8GB)</option>
+                        <option value="auto">Auto — match GPU VRAM (recommended)</option>
+                        <option value="qwen3-vl:4b">Qwen3-VL 4B (good for 8GB)</option>
+                        <option value="qwen3-vl:8b">Qwen3-VL 8B (more accurate, needs ~12GB+)</option>
                         <option value="minicpm-v">MiniCPM-V 4.5 (dense document OCR)</option>
-                        <option value="qwen3-vl:8b">Qwen3-VL 8B (more accurate, needs ~12GB)</option>
+                        <option value="qwen3-vl:2b">Qwen3-VL 2B (low VRAM / fast)</option>
                         <option value="llava">LLaVA (legacy, lightweight)</option>
                       </select>
                     </div>
@@ -379,7 +393,10 @@ function App() {
                         Model Guidance:
                       </div>
                       <div style={{ marginBottom: '0.4rem' }}>
-                        <strong>Qwen3-VL 4B (default):</strong> Best all-rounder on 8GB GPUs. 32-language OCR (incl. German), strong on slides, tables, formulas and dense text.
+                        <strong>Auto (default):</strong> Picks a vision model to match your GPU's VRAM — bigger/more accurate on a 24GB card, lighter on an 8GB laptop.
+                      </div>
+                      <div style={{ marginBottom: '0.4rem' }}>
+                        <strong>Qwen3-VL 4B:</strong> Best all-rounder on 8GB GPUs. 32-language OCR (incl. German), strong on slides, tables, formulas and dense text.
                       </div>
                       <div style={{ marginBottom: '0.4rem' }}>
                         <strong>MiniCPM-V 4.5:</strong> Specialist for dense document OCR — invoices, scanned pages, technical dashboards.

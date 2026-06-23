@@ -231,10 +231,17 @@ def system_info():
     except Exception:
         ollama_up = False
 
+    # Auto-selected model tier (scales with detected VRAM)
+    try:
+        models = pipeline.active_models()
+    except Exception:
+        models = None
+
     return {
         "gpu": gpu_name,
         "vram_gb": vram_gb,
         "cuda": cuda,
+        "models": models,
         "services": {
             "whisper": _module_available("whisper"),
             "ollama": ollama_up,

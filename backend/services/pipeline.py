@@ -44,43 +44,97 @@ except ImportError as e:
     print(f"Warning: VLM services not available: {e}")
     VLM_AVAILABLE = False
 
+def detect_vram_gb() -> float:
+    """Detect total VRAM of the primary CUDA device in GB (0.0 if no GPU)."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return round(torch.cuda.get_device_properties(0).total_memory / (1024 ** 3), 1)
+    except Exception:
+        pass
+    return 0.0
+
+
+def select_model_tier(vram_gb: float) -> Dict[str, str]:
+    """Pick Whisper + LLM + VLM models that fit the detected VRAM.
+
+    Mirrors Transcribe-Folder.ps1's tiering, but with the 2026 model lineup and
+    sized so the app scales from CPU-only laptops up to a 24GB RTX 4090. A single
+    text model is used across every LLM step to avoid Ollama model-swap churn.
+    Whisper is freed from VRAM after transcription (see _unload_whisper), so the
+    LLM/VLM budget below assumes Whisper is no longer resident.
+    """
+    if vram_gb >= 20:      # e.g. RTX 4090 / 3090 (24GB)
+        return {"tier": ">=20GB", "whisper": "turbo", "text": "qwen3.5:27b", "vlm": "qwen3-vl:8b", "device": "cuda"}
+    if vram_gb >= 16:      # e.g. RTX 4080 (16GB)
+        return {"tier": ">=16GB", "whisper": "turbo", "text": "qwen3.5:9b", "vlm": "qwen3-vl:8b", "device": "cuda"}
+    if vram_gb >= 12:      # e.g. RTX 4070 Ti (12GB)
+        return {"tier": ">=12GB", "whisper": "turbo", "text": "qwen3.5:9b", "vlm": "qwen3-vl:4b", "device": "cuda"}
+    if vram_gb >= 8:       # e.g. RTX 2000 Ada (8GB)
+        return {"tier": ">=8GB", "whisper": "turbo", "text": "qwen3.5:4b", "vlm": "qwen3-vl:4b", "device": "cuda"}
+    if vram_gb >= 4:       # small GPUs
+        return {"tier": ">=4GB", "whisper": "small", "text": "qwen3.5:2b", "vlm": "qwen3-vl:2b", "device": "cuda"}
+    return {"tier": "CPU", "whisper": "small", "text": "qwen3.5:2b", "vlm": "qwen3-vl:2b", "device": "cpu"}
+
+
 class MediaPipeline:
-    
-    # qwen3.5:4b (Mar 2026) for every text step: 201-language coverage, 256K
-    # context, ~3.4GB so it fits 8GB VRAM alongside a resident Whisper model.
-    # A single model across steps avoids costly Ollama model-swapping mid-job.
-    MODEL_MAP = {
-        "German": {
-            "Correction": "qwen3.5:4b",
-            "Refinement": "qwen3.5:4b",
-            "Subtitles": "qwen3.5:4b",
-            "Audit": "qwen3.5:4b",
-            "Questions": "qwen3.5:4b",
-            "Answers": "qwen3.5:4b",
-            "Summary": "qwen3.5:4b"
-        },
-        "English": {
-            "Correction": "qwen3.5:4b",
-            "Refinement": "qwen3.5:4b",
-            "Subtitles": "qwen3.5:4b",
-            "Audit": "qwen3.5:4b",
-            "Questions": "qwen3.5:4b",
-            "Answers": "qwen3.5:4b",
-            "Summary": "qwen3.5:4b"
-        }
-    }
+
+    @staticmethod
+    def _build_model_map(text_model: str) -> Dict[str, Dict[str, str]]:
+        """One text model across all steps, for both languages (qwen3.5 is
+        multilingual, covering German and English correction)."""
+        steps = ["Correction", "Refinement", "Subtitles", "Audit", "Questions", "Answers", "Summary"]
+        per_lang = {step: text_model for step in steps}
+        return {"German": dict(per_lang), "English": dict(per_lang)}
 
     def __init__(self):
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger("MediaPipeline")
         self.whisper_model = None # Lazy load
 
-    def _load_whisper(self, model_size="small"):
+        # Auto-select a model tier from detected VRAM so the same app runs well
+        # on an 8GB laptop GPU and a 24GB RTX 4090 alike.
+        self.vram_gb = detect_vram_gb()
+        self.tier = select_model_tier(self.vram_gb)
+        self.whisper_size = self.tier["whisper"]
+        self.whisper_device = self.tier["device"]
+        self.vlm_model_default = self.tier["vlm"]
+        self.MODEL_MAP = self._build_model_map(self.tier["text"])
+        self.logger.info(
+            f"VRAM {self.vram_gb}GB -> tier {self.tier['tier']}: "
+            f"whisper={self.whisper_size}, text={self.tier['text']}, vlm={self.vlm_model_default}"
+        )
+
+    def active_models(self) -> Dict[str, Any]:
+        """Expose the auto-selected models for the dashboard /system endpoint."""
+        return {
+            "vram_gb": self.vram_gb,
+            "tier": self.tier["tier"],
+            "whisper": self.whisper_size,
+            "text": self.tier["text"],
+            "vlm": self.vlm_model_default,
+        }
+
+    def _load_whisper(self, model_size=None):
         if not self.whisper_model:
             import torch
+            size = model_size or self.whisper_size
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            self.logger.info(f"Loading Whisper model: {model_size} on {device.upper()}")
-            self.whisper_model = whisper.load_model(model_size, device=device)
+            self.logger.info(f"Loading Whisper model: {size} on {device.upper()}")
+            self.whisper_model = whisper.load_model(size, device=device)
+
+    def _unload_whisper(self):
+        """Release Whisper from VRAM so the LLM/VLM stages don't contend for
+        memory on smaller GPUs."""
+        if self.whisper_model is not None:
+            self.whisper_model = None
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except Exception:
+                pass
+            self.logger.info("Unloaded Whisper from VRAM.")
 
     def extract_audio(self, video_path: str, output_wav: str):
         """Extract audio using ffmpeg, similar to PS1 script."""
@@ -449,7 +503,11 @@ class MediaPipeline:
         should_insights = options.get("run_insights", True)
         should_diarize = options.get("run_diarization", False)  # Opt-in feature
         should_vlm = options.get("run_vlm", True)  # Default ON per user request
-        vlm_model = options.get("vlm_model", "qwen3-vl:4b")  # Ollama vision model (Qwen3-VL 4B: 32-lang OCR, strong on tables/formulas, fits 8GB)
+        # Vision model: 'auto' (or unset) -> use the VRAM-tier default; otherwise
+        # honor the explicit choice from the UI.
+        vlm_model = options.get("vlm_model") or "auto"
+        if vlm_model == "auto":
+            vlm_model = self.vlm_model_default
         scene_threshold = options.get("scene_threshold", 10.0)  # Scene detection sensitivity (lowered for more scenes)
         
         skip_existing = options.get("skip_existing", False)
@@ -506,7 +564,10 @@ class MediaPipeline:
                 result = self.transcribe(str(wav_path), str(output_dir))
                 raw_text = result["text"]
                 self.generate_outputs(result, str(wav_path))
-        
+
+        # Free Whisper from VRAM so the LLM/VLM stages have room on small GPUs.
+        self._unload_whisper()
+
         # 3. Language Detection
         language = "English"
         if result:
