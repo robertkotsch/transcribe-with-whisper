@@ -55,25 +55,46 @@ def detect_vram_gb() -> float:
     return 0.0
 
 
-def select_model_tier(vram_gb: float) -> Dict[str, str]:
-    """Pick Whisper + LLM + VLM models that fit the detected VRAM.
+# Single source of truth for model selection lives in backend/models.config.json
+# (edit that file, then run Update-Models.ps1). These built-in tiers are only a
+# fallback used if the config file is missing or invalid, so the app never breaks.
+MODELS_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "models.config.json")
 
-    Mirrors Transcribe-Folder.ps1's tiering, but with the 2026 model lineup and
-    sized so the app scales from CPU-only laptops up to a 24GB RTX 4090. A single
+_DEFAULT_TIERS = [
+    {"min_vram_gb": 20, "name": ">=20GB", "whisper": "turbo", "text": "qwen3.5:27b", "vlm": "qwen3-vl:8b", "device": "cuda"},
+    {"min_vram_gb": 16, "name": ">=16GB", "whisper": "turbo", "text": "qwen3.5:9b", "vlm": "qwen3-vl:8b", "device": "cuda"},
+    {"min_vram_gb": 12, "name": ">=12GB", "whisper": "turbo", "text": "qwen3.5:9b", "vlm": "qwen3-vl:4b", "device": "cuda"},
+    {"min_vram_gb": 8, "name": ">=8GB", "whisper": "turbo", "text": "qwen3.5:4b", "vlm": "qwen3-vl:4b", "device": "cuda"},
+    {"min_vram_gb": 4, "name": ">=4GB", "whisper": "small", "text": "qwen3.5:2b", "vlm": "qwen3-vl:2b", "device": "cuda"},
+    {"min_vram_gb": 0, "name": "CPU", "whisper": "small", "text": "qwen3.5:2b", "vlm": "qwen3-vl:2b", "device": "cpu"},
+]
+
+
+def load_tiers() -> List[Dict[str, Any]]:
+    """Load tiers from models.config.json (sorted by VRAM, descending). Falls
+    back to the built-in defaults if the file is missing or malformed."""
+    try:
+        with open(MODELS_CONFIG_PATH, "r", encoding="utf-8") as f:
+            tiers = json.load(f).get("tiers")
+        if tiers:
+            return sorted(tiers, key=lambda t: t.get("min_vram_gb", 0), reverse=True)
+    except Exception as e:
+        logging.getLogger("MediaPipeline").warning(
+            f"Could not read {MODELS_CONFIG_PATH} ({e}); using built-in default tiers."
+        )
+    return _DEFAULT_TIERS
+
+
+def select_model_tier(vram_gb: float) -> Dict[str, str]:
+    """Pick Whisper + LLM + VLM models that fit the detected VRAM, from the
+    config file. Scales from CPU-only laptops up to a 24GB RTX 4090. A single
     text model is used across every LLM step to avoid Ollama model-swap churn.
     Whisper is freed from VRAM after transcription (see _unload_whisper), so the
-    LLM/VLM budget below assumes Whisper is no longer resident.
+    LLM/VLM budget assumes Whisper is no longer resident.
     """
-    if vram_gb >= 20:      # e.g. RTX 4090 / 3090 (24GB)
-        return {"tier": ">=20GB", "whisper": "turbo", "text": "qwen3.5:27b", "vlm": "qwen3-vl:8b", "device": "cuda"}
-    if vram_gb >= 16:      # e.g. RTX 4080 (16GB)
-        return {"tier": ">=16GB", "whisper": "turbo", "text": "qwen3.5:9b", "vlm": "qwen3-vl:8b", "device": "cuda"}
-    if vram_gb >= 12:      # e.g. RTX 4070 Ti (12GB)
-        return {"tier": ">=12GB", "whisper": "turbo", "text": "qwen3.5:9b", "vlm": "qwen3-vl:4b", "device": "cuda"}
-    if vram_gb >= 8:       # e.g. RTX 2000 Ada (8GB)
-        return {"tier": ">=8GB", "whisper": "turbo", "text": "qwen3.5:4b", "vlm": "qwen3-vl:4b", "device": "cuda"}
-    if vram_gb >= 4:       # small GPUs
-        return {"tier": ">=4GB", "whisper": "small", "text": "qwen3.5:2b", "vlm": "qwen3-vl:2b", "device": "cuda"}
+    for t in load_tiers():
+        if vram_gb >= t.get("min_vram_gb", 0):
+            return {"tier": t["name"], "whisper": t["whisper"], "text": t["text"], "vlm": t["vlm"], "device": t["device"]}
     return {"tier": "CPU", "whisper": "small", "text": "qwen3.5:2b", "vlm": "qwen3-vl:2b", "device": "cpu"}
 
 
