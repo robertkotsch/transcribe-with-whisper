@@ -46,24 +46,27 @@ except ImportError as e:
 
 class MediaPipeline:
     
+    # Modern model tags, aligned with Transcribe-Folder.ps1's >=8GB VRAM tier
+    # (qwen3:8b correction + gemma3:4b general). qwen3 is multilingual, so it
+    # handles both German and English correction.
     MODEL_MAP = {
         "German": {
-            "Correction": "qwen2",
-            "Refinement": "mistral",
-            "Subtitles": "mistral",
-            "Audit": "mistral",
-            "Questions": "mistral",
-            "Answers": "mistral",
-            "Summary": "mistral"
+            "Correction": "qwen3:8b",
+            "Refinement": "gemma3:4b",
+            "Subtitles": "gemma3:4b",
+            "Audit": "gemma3:4b",
+            "Questions": "gemma3:4b",
+            "Answers": "gemma3:4b",
+            "Summary": "gemma3:4b"
         },
         "English": {
-            "Correction": "llama3", # As per PS1 script
-            "Refinement": "mistral",
-            "Subtitles": "mistral",
-            "Audit": "mistral",
-            "Questions": "mistral",
-            "Answers": "mistral",
-            "Summary": "mistral"
+            "Correction": "qwen3:8b",
+            "Refinement": "gemma3:4b",
+            "Subtitles": "gemma3:4b",
+            "Audit": "gemma3:4b",
+            "Questions": "gemma3:4b",
+            "Answers": "gemma3:4b",
+            "Summary": "gemma3:4b"
         }
     }
 
