@@ -1,0 +1,580 @@
+{
+  "video_id": "Autoupdate",
+  "total_corrections": 41,
+  "corrections": [
+    {
+      "segment_id": 0,
+      "timestamp": 0.0,
+      "original_text": " Hallo liebe Kolleginnen und Kollegen, es ist mal wieder Zeit für ein kleines Feature-Video,",
+      "corrected_text": " Hallo liebe Kolleginnen Update Kollegen, es ist mal wieder Zeit für ein kleines Feature-Video,",
+      "original_term": "und",
+      "corrected_term": "Update",
+      "confidence": 0.6207316433352449,
+      "evidence": {
+        "visual_source": "scene_0_ocr",
+        "visual_timestamp": 5.462994990485361,
+        "frequency": 3
+      }
+    },
+    {
+      "segment_id": 1,
+      "timestamp": 7.0,
+      "original_text": " diesmal zu unserem neuen Auto Update.",
+      "corrected_text": " diesmal zu unserem neuen Update.",
+      "original_term": "Auto Update.",
+      "corrected_term": "Update.",
+      "confidence": 0.6113499838111237,
+      "evidence": {
+        "visual_source": "scene_0_ocr",
+        "visual_timestamp": 5.462994990485361,
+        "frequency": 3
+      }
+    },
+    {
+      "segment_id": 3,
+      "timestamp": 16.0,
+      "original_text": " Natürlich geht es nicht um irgendwelche Verbesserungen an Autos, sondern um die für uns bahnbrechende Neuerung Knowledge-Burger CREATE automatisiert aktualisieren zu können.",
+      "corrected_text": " Natürlich Create es nicht um irgendwelche Verbesserungen an Autos, sondern um die für uns bahnbrechende Neuerung Knowledgeworker CREATE Automatisches aktualisieren zu können.",
+      "original_term": "automatisiert",
+      "corrected_term": "Automatisches",
+      "confidence": 0.7862618764771471,
+      "evidence": {
+        "visual_source": "scene_2_ocr",
+        "visual_timestamp": 23.91504453538758,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 3,
+      "timestamp": 16.0,
+      "original_text": " Natürlich geht es nicht um irgendwelche Verbesserungen an Autos, sondern um die für uns bahnbrechende Neuerung Knowledge-Burger CREATE automatisiert aktualisieren zu können.",
+      "corrected_text": " Natürlich Create es nicht um irgendwelche Verbesserungen an Autos, sondern um die für uns bahnbrechende Neuerung Knowledgeworker CREATE Automatisches aktualisieren zu können.",
+      "original_term": "Knowledge-Burger",
+      "corrected_term": "Knowledgeworker",
+      "confidence": 0.8035407967567078,
+      "evidence": {
+        "visual_source": "scene_2_ocr",
+        "visual_timestamp": 23.91504453538758,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 3,
+      "timestamp": 16.0,
+      "original_text": " Natürlich geht es nicht um irgendwelche Verbesserungen an Autos, sondern um die für uns bahnbrechende Neuerung Knowledge-Burger CREATE automatisiert aktualisieren zu können.",
+      "corrected_text": " Natürlich Create es nicht um irgendwelche Verbesserungen an Autos, sondern um die für uns bahnbrechende Neuerung Knowledgeworker CREATE Automatisches aktualisieren zu können.",
+      "original_term": "geht",
+      "corrected_term": "Create",
+      "confidence": 0.5833329099303977,
+      "evidence": {
+        "visual_source": "scene_2_ocr",
+        "visual_timestamp": 23.91504453538758,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 7,
+      "timestamp": 54.0,
+      "original_text": " Diese 17 Systeme bestehen dazu auch noch jeweils aus vier Hauptkomponenten.",
+      "corrected_text": " Demo 076 Thieme Mercedes-Benz DGUV auch noch Heel aus kein Autoupdate.",
+      "original_term": "vier Hauptkomponenten.",
+      "corrected_term": "kein Autoupdate.",
+      "confidence": 0.6409786420457302,
+      "evidence": {
+        "visual_source": "scene_3_ocr",
+        "visual_timestamp": 56.80854609441272,
+        "frequency": 6
+      }
+    },
+    {
+      "segment_id": 7,
+      "timestamp": 54.0,
+      "original_text": " Diese 17 Systeme bestehen dazu auch noch jeweils aus vier Hauptkomponenten.",
+      "corrected_text": " Demo 076 Thieme Mercedes-Benz DGUV auch noch Heel aus kein Autoupdate.",
+      "original_term": "jeweils",
+      "corrected_term": "Heel",
+      "confidence": 0.6409817265612738,
+      "evidence": {
+        "visual_source": "scene_3_ocr",
+        "visual_timestamp": 56.80854609441272,
+        "frequency": 4
+      }
+    },
+    {
+      "segment_id": 7,
+      "timestamp": 54.0,
+      "original_text": " Diese 17 Systeme bestehen dazu auch noch jeweils aus vier Hauptkomponenten.",
+      "corrected_text": " Demo 076 Thieme Mercedes-Benz DGUV auch noch Heel aus kein Autoupdate.",
+      "original_term": "dazu",
+      "corrected_term": "DGUV",
+      "confidence": 0.6078468879063924,
+      "evidence": {
+        "visual_source": "scene_3_ocr",
+        "visual_timestamp": 56.80854609441272,
+        "frequency": 5
+      }
+    },
+    {
+      "segment_id": 7,
+      "timestamp": 54.0,
+      "original_text": " Diese 17 Systeme bestehen dazu auch noch jeweils aus vier Hauptkomponenten.",
+      "corrected_text": " Demo 076 Thieme Mercedes-Benz DGUV auch noch Heel aus kein Autoupdate.",
+      "original_term": "bestehen",
+      "corrected_term": "Mercedes-Benz",
+      "confidence": 0.6360257608261303,
+      "evidence": {
+        "visual_source": "scene_3_ocr",
+        "visual_timestamp": 56.80854609441272,
+        "frequency": 4
+      }
+    },
+    {
+      "segment_id": 7,
+      "timestamp": 54.0,
+      "original_text": " Diese 17 Systeme bestehen dazu auch noch jeweils aus vier Hauptkomponenten.",
+      "corrected_text": " Demo 076 Thieme Mercedes-Benz DGUV auch noch Heel aus kein Autoupdate.",
+      "original_term": "Systeme",
+      "corrected_term": "Thieme",
+      "confidence": 0.6410558281858846,
+      "evidence": {
+        "visual_source": "scene_3_ocr",
+        "visual_timestamp": 56.80854609441272,
+        "frequency": 4
+      }
+    },
+    {
+      "segment_id": 7,
+      "timestamp": 54.0,
+      "original_text": " Diese 17 Systeme bestehen dazu auch noch jeweils aus vier Hauptkomponenten.",
+      "corrected_text": " Demo 076 Thieme Mercedes-Benz DGUV auch noch Heel aus kein Autoupdate.",
+      "original_term": "17",
+      "corrected_term": "076",
+      "confidence": 0.7496036142110825,
+      "evidence": {
+        "visual_source": "scene_3_ocr",
+        "visual_timestamp": 56.80854609441272,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 7,
+      "timestamp": 54.0,
+      "original_text": " Diese 17 Systeme bestehen dazu auch noch jeweils aus vier Hauptkomponenten.",
+      "corrected_text": " Demo 076 Thieme Mercedes-Benz DGUV auch noch Heel aus kein Autoupdate.",
+      "original_term": "Diese",
+      "corrected_term": "Demo",
+      "confidence": 0.6949861814505812,
+      "evidence": {
+        "visual_source": "scene_3_ocr",
+        "visual_timestamp": 56.80854609441272,
+        "frequency": 4
+      }
+    },
+    {
+      "segment_id": 16,
+      "timestamp": 118.0,
+      "original_text": " Also wann kann man ein Update machen, wenn niemand im System arbeitet?",
+      "corrected_text": " asn Wann kann ich ein Update machen?, wenn November im Sunday Friday?",
+      "original_term": "arbeitet?",
+      "corrected_term": "Friday?",
+      "confidence": 0.5748103844862918,
+      "evidence": {
+        "visual_source": "scene_4_ocr",
+        "visual_timestamp": 121.39071950157049,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 16,
+      "timestamp": 118.0,
+      "original_text": " Also wann kann man ein Update machen, wenn niemand im System arbeitet?",
+      "corrected_text": " asn Wann kann ich ein Update machen?, wenn November im Sunday Friday?",
+      "original_term": "System",
+      "corrected_term": "Sunday",
+      "confidence": 0.5749969996734048,
+      "evidence": {
+        "visual_source": "scene_4_ocr",
+        "visual_timestamp": 121.39071950157049,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 16,
+      "timestamp": 118.0,
+      "original_text": " Also wann kann man ein Update machen, wenn niemand im System arbeitet?",
+      "corrected_text": " asn Wann kann ich ein Update machen?, wenn November im Sunday Friday?",
+      "original_term": "niemand",
+      "corrected_term": "November",
+      "confidence": 0.6624707847334284,
+      "evidence": {
+        "visual_source": "scene_4_ocr",
+        "visual_timestamp": 121.39071950157049,
+        "frequency": 6
+      }
+    },
+    {
+      "segment_id": 16,
+      "timestamp": 118.0,
+      "original_text": " Also wann kann man ein Update machen, wenn niemand im System arbeitet?",
+      "corrected_text": " asn Wann kann ich ein Update machen?, wenn November im Sunday Friday?",
+      "original_term": "wann kann man ein Update machen,",
+      "corrected_term": "Wann kann ich ein Update machen?,",
+      "confidence": 0.9025982707917412,
+      "evidence": {
+        "visual_source": "scene_4_ocr",
+        "visual_timestamp": 121.39071950157049,
+        "frequency": 3
+      }
+    },
+    {
+      "segment_id": 16,
+      "timestamp": 118.0,
+      "original_text": " Also wann kann man ein Update machen, wenn niemand im System arbeitet?",
+      "corrected_text": " asn Wann kann ich ein Update machen?, wenn November im Sunday Friday?",
+      "original_term": "Also",
+      "corrected_term": "asn",
+      "confidence": 0.6333095681350992,
+      "evidence": {
+        "visual_source": "scene_4_ocr",
+        "visual_timestamp": 121.39071950157049,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 17,
+      "timestamp": 123.0,
+      "original_text": " Und wann ist das nun wirklich?",
+      "corrected_text": " Sunday wann ist das nun wirklich?",
+      "original_term": "Und",
+      "corrected_term": "Sunday",
+      "confidence": 0.6241507782432504,
+      "evidence": {
+        "visual_source": "scene_4_ocr",
+        "visual_timestamp": 121.39071950157049,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 24,
+      "timestamp": 168.0,
+      "original_text": " Und auch frühmorgens maximal spätestens ab Früh um 6 Uhr, die Autoren bereits leistig wieder an Werten sind.",
+      "corrected_text": " Unr auch frühmorgens maximal spätestens ab Früh um 2025 mher, die <atarina bereits leistig wieder an Wednesday.",
+      "original_term": "Werten sind.",
+      "corrected_term": "Wednesday.",
+      "confidence": 0.6653361883659005,
+      "evidence": {
+        "visual_source": "scene_5_ocr",
+        "visual_timestamp": 171.92754929270697,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 24,
+      "timestamp": 168.0,
+      "original_text": " Und auch frühmorgens maximal spätestens ab Früh um 6 Uhr, die Autoren bereits leistig wieder an Werten sind.",
+      "corrected_text": " Unr auch frühmorgens maximal spätestens ab Früh um 2025 mher, die <atarina bereits leistig wieder an Wednesday.",
+      "original_term": "Autoren",
+      "corrected_term": "<atarina",
+      "confidence": 0.6002352653675533,
+      "evidence": {
+        "visual_source": "scene_5_ocr",
+        "visual_timestamp": 171.92754929270697,
+        "frequency": 1
+      }
+    },
+    {
+      "segment_id": 24,
+      "timestamp": 168.0,
+      "original_text": " Und auch frühmorgens maximal spätestens ab Früh um 6 Uhr, die Autoren bereits leistig wieder an Werten sind.",
+      "corrected_text": " Unr auch frühmorgens maximal spätestens ab Früh um 2025 mher, die <atarina bereits leistig wieder an Wednesday.",
+      "original_term": "Uhr,",
+      "corrected_term": "mher,",
+      "confidence": 0.631633957227071,
+      "evidence": {
+        "visual_source": "scene_5_ocr",
+        "visual_timestamp": 171.92754929270697,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 24,
+      "timestamp": 168.0,
+      "original_text": " Und auch frühmorgens maximal spätestens ab Früh um 6 Uhr, die Autoren bereits leistig wieder an Werten sind.",
+      "corrected_text": " Unr auch frühmorgens maximal spätestens ab Früh um 2025 mher, die <atarina bereits leistig wieder an Wednesday.",
+      "original_term": "6",
+      "corrected_term": "2025",
+      "confidence": 0.6999982118606568,
+      "evidence": {
+        "visual_source": "scene_5_ocr",
+        "visual_timestamp": 171.92754929270697,
+        "frequency": 3
+      }
+    },
+    {
+      "segment_id": 24,
+      "timestamp": 168.0,
+      "original_text": " Und auch frühmorgens maximal spätestens ab Früh um 6 Uhr, die Autoren bereits leistig wieder an Werten sind.",
+      "corrected_text": " Unr auch frühmorgens maximal spätestens ab Früh um 2025 mher, die <atarina bereits leistig wieder an Wednesday.",
+      "original_term": "Und",
+      "corrected_term": "Unr",
+      "confidence": 0.7637550524478062,
+      "evidence": {
+        "visual_source": "scene_5_ocr",
+        "visual_timestamp": 171.92754929270697,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 53,
+      "timestamp": 324.0,
+      "original_text": " Jeden Morgen aktualisieren wir nun als Allererstes dieses Integration System.",
+      "corrected_text": " Jeden Morgen aktualisieren wir nun als Allererstes Integration System.",
+      "original_term": "dieses Integration",
+      "corrected_term": "Integration",
+      "confidence": 0.689539150770257,
+      "evidence": {
+        "visual_source": "scene_7_ocr",
+        "visual_timestamp": 323.4555160831786,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 59,
+      "timestamp": 364.0,
+      "original_text": " Weitere Tests für neue und bestehende Features können nun kontinuierlich weiter ergänzt werden.",
+      "corrected_text": " Dauer: Passed form neue Minute Testergebnisse users 22 Sekunden not kontinuierlich Dauer ergänzt Person.",
+      "original_term": "werden.",
+      "corrected_term": "Person.",
+      "confidence": 0.7249957659585559,
+      "evidence": {
+        "visual_source": "scene_8_ocr",
+        "visual_timestamp": 366.7138540591971,
+        "frequency": 3
+      }
+    },
+    {
+      "segment_id": 59,
+      "timestamp": 364.0,
+      "original_text": " Weitere Tests für neue und bestehende Features können nun kontinuierlich weiter ergänzt werden.",
+      "corrected_text": " Dauer: Passed form neue Minute Testergebnisse users 22 Sekunden not kontinuierlich Dauer ergänzt Person.",
+      "original_term": "weiter",
+      "corrected_term": "Dauer",
+      "confidence": 0.6666178932617141,
+      "evidence": {
+        "visual_source": "scene_8_ocr",
+        "visual_timestamp": 366.7138540591971,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 59,
+      "timestamp": 364.0,
+      "original_text": " Weitere Tests für neue und bestehende Features können nun kontinuierlich weiter ergänzt werden.",
+      "corrected_text": " Dauer: Passed form neue Minute Testergebnisse users 22 Sekunden not kontinuierlich Dauer ergänzt Person.",
+      "original_term": "nun",
+      "corrected_term": "not",
+      "confidence": 0.6749713104515044,
+      "evidence": {
+        "visual_source": "scene_8_ocr",
+        "visual_timestamp": 366.7138540591971,
+        "frequency": 7
+      }
+    },
+    {
+      "segment_id": 59,
+      "timestamp": 364.0,
+      "original_text": " Weitere Tests für neue und bestehende Features können nun kontinuierlich weiter ergänzt werden.",
+      "corrected_text": " Dauer: Passed form neue Minute Testergebnisse users 22 Sekunden not kontinuierlich Dauer ergänzt Person.",
+      "original_term": "können",
+      "corrected_term": "22 Sekunden",
+      "confidence": 0.6588123273560527,
+      "evidence": {
+        "visual_source": "scene_8_ocr",
+        "visual_timestamp": 366.7138540591971,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 59,
+      "timestamp": 364.0,
+      "original_text": " Weitere Tests für neue und bestehende Features können nun kontinuierlich weiter ergänzt werden.",
+      "corrected_text": " Dauer: Passed form neue Minute Testergebnisse users 22 Sekunden not kontinuierlich Dauer ergänzt Person.",
+      "original_term": "Features",
+      "corrected_term": "users",
+      "confidence": 0.6499329050577023,
+      "evidence": {
+        "visual_source": "scene_8_ocr",
+        "visual_timestamp": 366.7138540591971,
+        "frequency": 5
+      }
+    },
+    {
+      "segment_id": 59,
+      "timestamp": 364.0,
+      "original_text": " Weitere Tests für neue und bestehende Features können nun kontinuierlich weiter ergänzt werden.",
+      "corrected_text": " Dauer: Passed form neue Minute Testergebnisse users 22 Sekunden not kontinuierlich Dauer ergänzt Person.",
+      "original_term": "bestehende",
+      "corrected_term": "Testergebnisse",
+      "confidence": 0.6437488052450024,
+      "evidence": {
+        "visual_source": "scene_8_ocr",
+        "visual_timestamp": 366.7138540591971,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 59,
+      "timestamp": 364.0,
+      "original_text": " Weitere Tests für neue und bestehende Features können nun kontinuierlich weiter ergänzt werden.",
+      "corrected_text": " Dauer: Passed form neue Minute Testergebnisse users 22 Sekunden not kontinuierlich Dauer ergänzt Person.",
+      "original_term": "und",
+      "corrected_term": "Minute",
+      "confidence": 0.6166283111107154,
+      "evidence": {
+        "visual_source": "scene_8_ocr",
+        "visual_timestamp": 366.7138540591971,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 59,
+      "timestamp": 364.0,
+      "original_text": " Weitere Tests für neue und bestehende Features können nun kontinuierlich weiter ergänzt werden.",
+      "corrected_text": " Dauer: Passed form neue Minute Testergebnisse users 22 Sekunden not kontinuierlich Dauer ergänzt Person.",
+      "original_term": "für",
+      "corrected_term": "form",
+      "confidence": 0.7666587541500728,
+      "evidence": {
+        "visual_source": "scene_8_ocr",
+        "visual_timestamp": 366.7138540591971,
+        "frequency": 3
+      }
+    },
+    {
+      "segment_id": 59,
+      "timestamp": 364.0,
+      "original_text": " Weitere Tests für neue und bestehende Features können nun kontinuierlich weiter ergänzt werden.",
+      "corrected_text": " Dauer: Passed form neue Minute Testergebnisse users 22 Sekunden not kontinuierlich Dauer ergänzt Person.",
+      "original_term": "Tests",
+      "corrected_term": "Passed",
+      "confidence": 0.5749984596880312,
+      "evidence": {
+        "visual_source": "scene_8_ocr",
+        "visual_timestamp": 366.7138540591971,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 59,
+      "timestamp": 364.0,
+      "original_text": " Weitere Tests für neue und bestehende Features können nun kontinuierlich weiter ergänzt werden.",
+      "corrected_text": " Dauer: Passed form neue Minute Testergebnisse users 22 Sekunden not kontinuierlich Dauer ergänzt Person.",
+      "original_term": "Weitere",
+      "corrected_term": "Dauer:",
+      "confidence": 0.6522324775066991,
+      "evidence": {
+        "visual_source": "scene_8_ocr",
+        "visual_timestamp": 366.7138540591971,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 64,
+      "timestamp": 395.0,
+      "original_text": " Und schlägt irgendein Update wegen eines Problems fehl, so wird sofort für die anderen Systeme, die noch nicht aktualisiert wurden, die Notbremse gezogen",
+      "corrected_text": " Und schlägt irgendein Update wegen eines Problems fehl, so Wirt sofort für Dai anderen Systeme, die noch nicht aktualisiert Crea, die Notbremse gezogen",
+      "original_term": "wurden,",
+      "corrected_term": "Crea,",
+      "confidence": 0.5624187558889389,
+      "evidence": {
+        "visual_source": "scene_9_ocr",
+        "visual_timestamp": 395.6132626040305,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 64,
+      "timestamp": 395.0,
+      "original_text": " Und schlägt irgendein Update wegen eines Problems fehl, so wird sofort für die anderen Systeme, die noch nicht aktualisiert wurden, die Notbremse gezogen",
+      "corrected_text": " Und schlägt irgendein Update wegen eines Problems fehl, so Wirt sofort für Dai anderen Systeme, die noch nicht aktualisiert Crea, die Notbremse gezogen",
+      "original_term": "die",
+      "corrected_term": "Dai",
+      "confidence": 0.6634173423051835,
+      "evidence": {
+        "visual_source": "scene_9_ocr",
+        "visual_timestamp": 395.6132626040305,
+        "frequency": 1
+      }
+    },
+    {
+      "segment_id": 64,
+      "timestamp": 395.0,
+      "original_text": " Und schlägt irgendein Update wegen eines Problems fehl, so wird sofort für die anderen Systeme, die noch nicht aktualisiert wurden, die Notbremse gezogen",
+      "corrected_text": " Und schlägt irgendein Update wegen eines Problems fehl, so Wirt sofort für Dai anderen Systeme, die noch nicht aktualisiert Crea, die Notbremse gezogen",
+      "original_term": "wird",
+      "corrected_term": "Wirt",
+      "confidence": 0.8749439686536788,
+      "evidence": {
+        "visual_source": "scene_9_ocr",
+        "visual_timestamp": 395.6132626040305,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 70,
+      "timestamp": 443.0,
+      "original_text": " dass er noch ein Update machen wollte.",
+      "corrected_text": " dass er noch ein Updates: machen wollte.",
+      "original_term": "Update",
+      "corrected_term": "Updates:",
+      "confidence": 0.7299827489705123,
+      "evidence": {
+        "visual_source": "scene_10_ocr",
+        "visual_timestamp": 446.7277504757319,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 71,
+      "timestamp": 446.0,
+      "original_text": " Und das Allerbeste ist, dass die Zeit für Entwickler nun freigeworfen ist, für viele andere Aufgaben, die gemacht werden können,",
+      "corrected_text": " Updates: zuverlässiger ist, dass die Zeit für Entwickler nun freigeworfen Zeit für andere Aufgaben, die gemacht werden können,",
+      "original_term": "ist, für viele andere Aufgaben,",
+      "corrected_term": "Zeit für andere Aufgaben,",
+      "confidence": 0.7302643606095862,
+      "evidence": {
+        "visual_source": "scene_10_ocr",
+        "visual_timestamp": 446.7277504757319,
+        "frequency": 1
+      }
+    },
+    {
+      "segment_id": 71,
+      "timestamp": 446.0,
+      "original_text": " Und das Allerbeste ist, dass die Zeit für Entwickler nun freigeworfen ist, für viele andere Aufgaben, die gemacht werden können,",
+      "corrected_text": " Updates: zuverlässiger ist, dass die Zeit für Entwickler nun freigeworfen Zeit für andere Aufgaben, die gemacht werden können,",
+      "original_term": "Allerbeste",
+      "corrected_term": "zuverlässiger",
+      "confidence": 0.5636732041638406,
+      "evidence": {
+        "visual_source": "scene_10_ocr",
+        "visual_timestamp": 446.7277504757319,
+        "frequency": 2
+      }
+    },
+    {
+      "segment_id": 71,
+      "timestamp": 446.0,
+      "original_text": " Und das Allerbeste ist, dass die Zeit für Entwickler nun freigeworfen ist, für viele andere Aufgaben, die gemacht werden können,",
+      "corrected_text": " Updates: zuverlässiger ist, dass die Zeit für Entwickler nun freigeworfen Zeit für andere Aufgaben, die gemacht werden können,",
+      "original_term": "Und das",
+      "corrected_term": "Updates:",
+      "confidence": 0.6791590485436668,
+      "evidence": {
+        "visual_source": "scene_10_ocr",
+        "visual_timestamp": 446.7277504757319,
+        "frequency": 2
+      }
+    }
+  ]
+}

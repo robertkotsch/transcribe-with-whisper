@@ -1,0 +1,23 @@
+fastapi
+uvicorn
+python-multipart
+openai-whisper
+ollama
+torch
+numpy
+ffmpeg-python
+pydantic
+nemo_toolkit[asr]
+omegaconf
+hydra-core
+# VLM Services
+scenedetect[opencv]
+opencv-python
+rapidfuzz
+jellyfish
+requests
+# Report Generation
+reportlab>=4.0.0
+Pillow>=10.0.0
+easyocr
+aiofiles

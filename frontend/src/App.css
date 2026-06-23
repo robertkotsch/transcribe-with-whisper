@@ -1,0 +1,621 @@
+.container {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 2rem;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  border-radius: 1rem;
+  margin-bottom: 2rem;
+}
+
+.logo-area {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.icon-pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.8;
+    text-shadow: 0 0 10px var(--primary);
+  }
+
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 20px var(--primary);
+  }
+
+  100% {
+    opacity: 0.8;
+    text-shadow: 0 0 10px var(--primary);
+  }
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 2rem;
+  flex: 1;
+  overflow: hidden;
+  /* Prevent full page scroll */
+}
+
+/* Control Panel */
+.control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.input-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.glass-input {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--card-border);
+  color: white;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  width: 100%;
+  font-family: inherit;
+}
+
+.glass-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 10px rgba(0, 242, 255, 0.2);
+}
+
+.hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
+/* Job List */
+.job-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.job-card {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.job-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.job-card.active {
+  background: rgba(0, 242, 255, 0.05);
+  border-color: var(--primary);
+}
+
+.job-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.job-path {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  margin-bottom: 2px;
+}
+
+.job-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+.status-processing {
+  color: #fbbf24;
+}
+
+.status-completed {
+  color: #4ade80;
+}
+
+.status-failed {
+  color: #f87171;
+}
+
+.viewer-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+  /* Ensure full height */
+}
+
+.preview-section {
+  flex: 3;
+  /* Takes up 60-70% */
+  overflow-y: auto;
+  padding: 1.5rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+}
+
+.documents-section {
+  flex: 2;
+  /* Takes up rest */
+  overflow-y: auto;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.15);
+  /* Slightly darker */
+}
+
+.markdown-content {
+  color: #e2e8f0;
+  line-height: 1.6;
+}
+
+.markdown-content h3 {
+  color: #00f2ff;
+  margin-bottom: 1rem;
+}
+
+.content-box {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1.5rem;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  /* Preserve formatting */
+}
+
+.placeholder-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.processing-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  gap: 1rem;
+}
+
+.spin {
+  animation: spin 3s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.results-container {
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.3rem;
+  color: #fbbf24;
+}
+
+/* Live Preview Elements */
+.live-pill {
+  background: var(--primary);
+  color: black;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-weight: 700;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  box-shadow: 0 0 10px var(--primary-glow);
+}
+
+.live-preview {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0.5rem;
+  max-width: 80%;
+  text-align: left;
+}
+
+.live-preview h4 {
+  margin: 0 0 0.5rem 0;
+  color: #fbbf24;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.preview-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+  font-family: monospace;
+}
+
+.sub-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2rem;
+}
+
+/* Button Groups */
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--card-border);
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: white;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: black;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 15px var(--primary-glow);
+  transform: translateY(-1px);
+}
+
+/* Settings Section */
+.settings-section {
+  margin-top: 1rem;
+}
+
+.btn-toggle {
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--text-muted);
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.btn-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-toggle.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-color: var(--primary);
+}
+
+.settings-panel {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--card-border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-top: 0.5rem;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: background 0.2s;
+}
+
+.checkbox-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.checkbox-item input {
+  cursor: pointer;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--primary);
+}
+
+.btn-danger {
+  background: rgba(220, 38, 38, 0.2);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-danger:hover {
+  background: rgba(220, 38, 38, 0.4);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+  color: white;
+}
+
+/* Result Cards Grid - Pocket Effect */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  padding-bottom: 2rem;
+}
+
+/* Wrapper to contain card + pocket button */
+.result-card-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.result-card {
+  background: #e8e8e8;
+  /* Light off-white/gray */
+  border-radius: 24px;
+  /* More pronounced rounded corners */
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  text-align: center;
+  height: 280px;
+  color: #0f172a;
+  position: relative;
+  z-index: 1;
+  /* Behind the button */
+  /* Pocket Sticking Effect - rotated from bottom */
+  transform: perspective(1200px) rotateX(12deg) rotateZ(-2deg);
+  transform-origin: bottom center;
+  box-shadow:
+    0 25px 60px rgba(0, 0, 0, 0.6),
+    0 -10px 30px rgba(0, 0, 0, 0.3) inset;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+  overflow: visible;
+  /* Allow button to extend below card */
+}
+
+
+
+.result-card:hover,
+.result-card-wrapper:hover .result-card {
+  /* Pull card further out of pocket on hover - works when hovering card OR button */
+  transform: perspective(1200px) rotateX(6deg) rotateZ(-1deg) translateY(-12px);
+  box-shadow:
+    0 35px 80px rgba(0, 0, 0, 0.7),
+    0 -10px 30px rgba(0, 0, 0, 0.2) inset;
+}
+
+
+
+.card-title {
+  font-size: 1.5rem;
+  /* Larger title */
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+  color: #1e293b;
+  text-transform: uppercase;
+}
+
+.card-desc {
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-bottom: 0.75rem;
+  font-style: italic;
+  min-height: 1.2em;
+}
+
+.card-content-preview {
+  flex: 1;
+  width: 100%;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #475569;
+  background: #e2e8f0;
+  /* Gray box for content */
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  text-align: left;
+  display: -webkit-box;
+  -webkit-line-clamp: 7;
+  line-clamp: 7;
+  /* Standard property */
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+/* Static pocket rectangle - completely independent */
+.btn-show-me {
+  background-color: #050510;
+  /* Background color - acts as pocket */
+  color: #ffffff;
+  /* White text */
+  border: none;
+  border-radius: 8px;
+  padding: 1.4rem 0;
+  font-weight: 700;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  width: 105%;
+  /* Slightly wider than card */
+  margin-left: -2.5%;
+  /* Center the wider button */
+  /* No positioning needed - it's just next in the flex flow */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+  transition: background-color 0.3s, color 0.3s;
+  margin-top: -60px;
+  /* More overlap with card - button positioned higher */
+  z-index: 10;
+  /* In front of the card */
+  position: relative;
+}
+
+.btn-show-me:hover {
+  background-color: #00f2ff;
+  /* Cyan on hover */
+  color: #000;
+}
+
+/* Speaker Labels */
+.speaker-transcript {
+  line-height: 2;
+}
+
+.speaker-label {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-weight: 700;
+  font-size: 0.75rem;
+  margin-right: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.speaker-0 {
+  background: rgba(0, 242, 255, 0.15);
+  color: var(--speaker-0);
+  border: 1px solid var(--speaker-0);
+}
+
+.speaker-1 {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--speaker-1);
+  border: 1px solid var(--speaker-1);
+}
+
+.speaker-2 {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--speaker-2);
+  border: 1px solid var(--speaker-2);
+}
+
+.speaker-3 {
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--speaker-3);
+  border: 1px solid var(--speaker-3);
+}
+
+.speaker-4 {
+  background: rgba(236, 72, 153, 0.15);
+  color: var(--speaker-4);
+  border: 1px solid var(--speaker-4);
+}
+
+.speaker-5 {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--speaker-5);
+  border: 1px solid var(--speaker-5);
+}
+
+.speaker-6 {
+  background: rgba(249, 115, 22, 0.15);
+  color: var(--speaker-6);
+  border: 1px solid var(--speaker-6);
+}
+
+.speaker-7 {
+  background: rgba(20, 184, 166, 0.15);
+  color: var(--speaker-7);
+  border: 1px solid var(--speaker-7);
+}
+
+/* Auto-apply speaker styling to [SPEAKER_XX] patterns */
+.markdown-content p:has([data-speaker]) {
+  margin: 0.5rem 0;
+}
+
+.pdf-preview {
+  width: 100%;
+  height: 600px;
+  border: none;
+  border-radius: 8px;
+  background-color: #333;
+}
