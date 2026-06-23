@@ -5,15 +5,18 @@ reports whether the locally-installed copy is current, plus whether a newer
 named version of the same family exists. Makes no changes.
 
 Usage:
-    python backend/check_model_updates.py
+    python backend/check_model_updates.py            # check every configured tier
+    python backend/check_model_updates.py --current  # only this machine's VRAM tier
 
 This lives in Python (not Update-Models.ps1) on purpose: a PowerShell script that
 downloads from a URL trips Windows Defender's malware-downloader heuristic and
 gets quarantined. The Python backend already makes HTTP calls, so it is safe here.
 """
+import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 
 import requests
@@ -81,7 +84,34 @@ def successor_candidates(family: str):
     return out
 
 
+def detect_vram_gb():
+    """Lightweight VRAM probe via nvidia-smi (avoids importing torch). 0 = no GPU."""
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return round(float(out.stdout.strip().splitlines()[0]) / 1024, 1)
+    except Exception:
+        pass
+    return 0.0
+
+
+def select_tier(tiers, vram_gb):
+    """Highest tier whose min_vram_gb fits the detected VRAM."""
+    for t in sorted(tiers, key=lambda x: x.get("min_vram_gb", 0), reverse=True):
+        if vram_gb >= t.get("min_vram_gb", 0):
+            return t
+    return None
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Check configured Ollama models for updates (report-only).")
+    parser.add_argument("--current", action="store_true",
+                        help="Only check models for this machine's detected VRAM tier")
+    args = parser.parse_args()
+
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             tiers = json.load(f).get("tiers", [])
@@ -89,7 +119,18 @@ def main():
         print(f"ERROR: could not read {CONFIG_PATH}: {e}")
         return 1
 
-    models = sorted({m for t in tiers for m in (t.get("text"), t.get("vlm")) if m})
+    if args.current:
+        vram = detect_vram_gb()
+        tier = select_tier(tiers, vram)
+        if not tier:
+            print("Could not determine a tier for this machine.")
+            return 1
+        scope = [tier]
+        print(f"Detected {vram} GB -> tier {tier['name']} (use without --current to check all tiers)")
+    else:
+        scope = tiers
+
+    models = sorted({m for t in scope for m in (t.get("text"), t.get("vlm")) if m})
     print(f"Checking {len(models)} configured models against the Ollama registry...\n")
 
     for model in models:

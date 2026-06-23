@@ -50,10 +50,14 @@ the file is missing). The active tier is shown in the dashboard header and via
 Run the update checker to see whether the configured models are current and
 whether newer named versions exist in the Ollama registry (report-only):
 ```powershell
-python backend/check_model_updates.py
+python backend/check_model_updates.py            # check every configured tier
+python backend/check_model_updates.py --current  # only this machine's VRAM tier
 ```
-It reports each configured model as *up to date*, *not installed*, or *UPDATE
-AVAILABLE*, and probes common version-bump patterns (e.g. `qwen3.5` -> `qwen3.6`).
+It checks only the models listed in `models.config.json` (not every size/version
+of a family) and reports each as *up to date*, *not installed*, or *UPDATE
+AVAILABLE*, plus probes common version-bump patterns (e.g. `qwen3.5` -> `qwen3.6`).
+By default it checks all tiers (so you can spot updates for, say, the 4090 tier
+from any machine); `--current` limits it to this GPU's tier.
 
 > The checker is a Python script, not a `Update-Models.ps1` flag, on purpose:
 > Windows Defender quarantines PowerShell scripts that download from a URL
