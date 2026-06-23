@@ -8,6 +8,7 @@ function App() {
   const [jobs, setJobs] = useState([])
   const [selectedJob, setSelectedJob] = useState(null)
   const [previewData, setPreviewData] = useState(null)
+  const [systemInfo, setSystemInfo] = useState(null)
 
   // Options State
   const [showOptions, setShowOptions] = useState(false)
@@ -28,6 +29,22 @@ function App() {
     const interval = setInterval(fetchJobs, 2000)
     fetchJobs()
     return () => clearInterval(interval)
+  }, [])
+
+  // Poll live system status (GPU + service health) for the header
+  const fetchSystem = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8000/system')
+      setSystemInfo(await res.json())
+    } catch {
+      setSystemInfo(null) // backend unreachable
+    }
+  }
+
+  useEffect(() => {
+    fetchSystem()
+    const id = setInterval(fetchSystem, 5000)
+    return () => clearInterval(id)
   }, [])
 
   // Live Preview Logic
@@ -153,15 +170,20 @@ function App() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginTop: '12px', fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)' }}>
               <span style={{ fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>System Status:</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span> Whisper
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span> Ollama
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span> NeMo
-              </span>
+              {[
+                { key: 'whisper', label: 'Whisper' },
+                { key: 'ollama', label: 'Ollama' },
+                { key: 'nemo', label: 'NeMo' },
+              ].map(({ key, label }) => {
+                const state = systemInfo?.services?.[key]
+                const color = state === true ? '#4ade80' : state === false ? '#f87171' : '#94a3b8'
+                const desc = state === true ? 'available' : state === false ? 'unavailable' : 'unknown'
+                return (
+                  <span key={key} style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title={`${label}: ${desc}`}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, boxShadow: `0 0 8px ${color}` }}></span> {label}
+                  </span>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -186,8 +208,8 @@ function App() {
           <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '15px', fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
             {/* Backend Health */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }} title="Backend API Connection">
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: jobs.length >= 0 ? '#4ade80' : '#f87171', boxShadow: '0 0 5px currentColor' }}></div>
-              <span>API Online</span>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: systemInfo ? '#4ade80' : '#f87171', boxShadow: '0 0 5px currentColor' }}></div>
+              <span>{systemInfo ? 'API Online' : 'API Offline'}</span>
             </div>
 
             <div style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.2)' }}></div>
@@ -195,9 +217,9 @@ function App() {
             {/* GPU & VRAM */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#a5f3fc' }}>
               <Activity size={12} />
-              <span style={{ fontWeight: 600 }}>RTX 4090</span>
+              <span style={{ fontWeight: 600 }}>{systemInfo?.gpu || (systemInfo ? 'CPU' : '—')}</span>
             </div>
-            <div>24 GB VRAM</div>
+            <div>{systemInfo?.vram_gb ? `${systemInfo.vram_gb} GB VRAM` : (systemInfo && !systemInfo.cuda ? 'No GPU' : '—')}</div>
 
             <div style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.2)' }}></div>
 

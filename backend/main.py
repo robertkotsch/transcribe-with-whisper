@@ -199,6 +199,49 @@ async def list_jobs():
 def read_root():
     return {"status": "Media Pipeline Backend is Running"}
 
+import importlib.util
+import requests as _requests
+
+def _module_available(name: str) -> bool:
+    try:
+        return importlib.util.find_spec(name) is not None
+    except Exception:
+        return False
+
+@app.get("/system")
+def system_info():
+    """Live system status for the dashboard header (GPU + service health)."""
+    gpu_name = None
+    vram_gb = None
+    cuda = False
+    try:
+        import torch
+        cuda = torch.cuda.is_available()
+        if cuda:
+            gpu_name = torch.cuda.get_device_name(0).replace("NVIDIA ", "").strip()
+            vram_gb = round(torch.cuda.get_device_properties(0).total_memory / (1024 ** 3), 1)
+    except Exception:
+        pass
+
+    # Ollama reachability (short timeout so the header never hangs)
+    ollama_up = False
+    try:
+        ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+        ollama_up = _requests.get(f"{ollama_url}/api/tags", timeout=1.5).ok
+    except Exception:
+        ollama_up = False
+
+    return {
+        "gpu": gpu_name,
+        "vram_gb": vram_gb,
+        "cuda": cuda,
+        "services": {
+            "whisper": _module_available("whisper"),
+            "ollama": ollama_up,
+            "nemo": _module_available("nemo"),
+        },
+    }
+
 from fastapi.responses import FileResponse
 
 @app.get("/file")
