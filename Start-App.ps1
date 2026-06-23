@@ -4,6 +4,11 @@
 
 Write-Host "Starting Media Intelligence Station..." -ForegroundColor Cyan
 
+# Force UTF-8 so libraries that print Unicode (e.g. EasyOCR progress bars) don't
+# crash on the Windows cp1252 console codec.
+$env:PYTHONUTF8 = "1"
+$env:PYTHONIOENCODING = "utf-8"
+
 # Check dependencies
 if (-not (Test-Path "backend\services\pipeline.py")) {
     Write-Host "Error: Backend files missing." -ForegroundColor Red
@@ -42,16 +47,20 @@ else {
 if (Test-Path "backend\requirements.txt") {
     Write-Host "Checking backend dependencies..."
 
-    # Check for CUDA availability
-    $cudaAvailable = & $pythonPath -c "import torch; print(torch.cuda.is_available())" 2>$null
-    
-    if ($cudaAvailable -ne "True") {
-        Write-Host "CUDA not detected. Installing PyTorch with CUDA support..." -ForegroundColor Yellow
-        & $pipPath uninstall -y torch torchvision torchaudio
-        & $pipPath install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-    }
-
+    # Install requirements FIRST. A transitive dep (e.g. nemo) can pull a CPU-only
+    # torch from PyPI, so the CUDA check/repair must run AFTER this, not before.
     & $pipPath install -r backend\requirements.txt | Out-Null
+
+    # Ensure a CUDA-enabled PyTorch build (driver supports CUDA 13.x -> cu130).
+    $cudaAvailable = & $pythonPath -c "import torch; print(torch.cuda.is_available())" 2>$null
+    if ($cudaAvailable -ne "True") {
+        Write-Host "CUDA not active in torch. Installing CUDA build (cu130)..." -ForegroundColor Yellow
+        & $pipPath uninstall -y torch torchvision torchaudio
+        & $pipPath install torch==2.12.1 torchvision==0.27.1 --index-url https://download.pytorch.org/whl/cu130
+    }
+    else {
+        Write-Host "CUDA active in torch." -ForegroundColor Green
+    }
 }
 
 # ========================================
