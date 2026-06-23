@@ -1,7 +1,7 @@
 {
   "_comment": "Single source of truth for model selection. Edit this file to change which models the app uses per GPU VRAM tier, then run Update-Models.ps1 to pull them. The backend reads this on startup (falls back to built-in defaults if the file is missing or invalid). 'whisper' is an openai-whisper size (downloaded automatically by Whisper). 'text' and 'vlm' are Ollama tags (must be pulled via 'ollama pull').",
   "tiers": [
-    { "min_vram_gb": 20, "name": ">=20GB", "whisper": "turbo", "text": "qwen3.5:27b", "vlm": "qwen3-vl:8b", "device": "cuda" },
+    { "min_vram_gb": 20, "name": ">=20GB", "whisper": "turbo", "text": "qwen3.6:27b", "vlm": "qwen3-vl:8b", "device": "cuda" },
     { "min_vram_gb": 16, "name": ">=16GB", "whisper": "turbo", "text": "qwen3.5:9b",  "vlm": "qwen3-vl:8b", "device": "cuda" },
     { "min_vram_gb": 12, "name": ">=12GB", "whisper": "turbo", "text": "qwen3.5:9b",  "vlm": "qwen3-vl:4b", "device": "cuda" },
     { "min_vram_gb": 8,  "name": ">=8GB",  "whisper": "turbo", "text": "qwen3.5:4b",  "vlm": "qwen3-vl:4b", "device": "cuda" },

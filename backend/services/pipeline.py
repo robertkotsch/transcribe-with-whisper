@@ -61,7 +61,7 @@ def detect_vram_gb() -> float:
 MODELS_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "models.config.json")
 
 _DEFAULT_TIERS = [
-    {"min_vram_gb": 20, "name": ">=20GB", "whisper": "turbo", "text": "qwen3.5:27b", "vlm": "qwen3-vl:8b", "device": "cuda"},
+    {"min_vram_gb": 20, "name": ">=20GB", "whisper": "turbo", "text": "qwen3.6:27b", "vlm": "qwen3-vl:8b", "device": "cuda"},
     {"min_vram_gb": 16, "name": ">=16GB", "whisper": "turbo", "text": "qwen3.5:9b", "vlm": "qwen3-vl:8b", "device": "cuda"},
     {"min_vram_gb": 12, "name": ">=12GB", "whisper": "turbo", "text": "qwen3.5:9b", "vlm": "qwen3-vl:4b", "device": "cuda"},
     {"min_vram_gb": 8, "name": ">=8GB", "whisper": "turbo", "text": "qwen3.5:4b", "vlm": "qwen3-vl:4b", "device": "cuda"},
