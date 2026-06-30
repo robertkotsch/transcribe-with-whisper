@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
+    "preinstall": "node -e \"const e=process.env.npm_execpath;if(e&&!e.includes('pnpm')){console.error('\\n  ERROR: Use pnpm, not npm or yarn.\\n  Run: pnpm install\\n');process.exit(1)}\"",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
