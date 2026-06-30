@@ -104,7 +104,7 @@ class MediaPipeline:
     def _build_model_map(text_model: str) -> Dict[str, Dict[str, str]]:
         """One text model across all steps, for both languages (qwen3.5 is
         multilingual, covering German and English correction)."""
-        steps = ["Correction", "Refinement", "Subtitles", "Audit", "Questions", "Answers", "Summary"]
+        steps = ["Correction", "Refinement", "Subtitles", "Audit", "Questions", "Summary"]
         per_lang = {step: text_model for step in steps}
         return {"German": dict(per_lang), "English": dict(per_lang)}
 
@@ -205,6 +205,7 @@ class MediaPipeline:
 
     def ollama_generate(self, model: str, prompt: str, output_format: str = None) -> str:
         """Wrapper for Ollama generation with explicit timeout, context, and format."""
+        import re
         try:
             self.logger.info(f"Querying Ollama model: {model} (Format: {output_format})")
             url = "http://127.0.0.1:11434/api/generate"
@@ -212,22 +213,25 @@ class MediaPipeline:
                 "model": model,
                 "prompt": prompt,
                 "stream": False,
+                "think": False,  # Disable qwen3 thinking mode — prevents context overflow on small num_ctx
                 "options": {
-                    "num_ctx": 4096,
+                    "num_ctx": 8192,
                     "num_predict": -1
                 }
             }
             if output_format == "json":
                 payload["format"] = "json"
 
-            # Set a long timeout (e.g., 5 minutes)
             response = httpx.post(url, json=payload, timeout=300.0)
             if response.status_code == 200:
                 resp_json = response.json()
                 if "response" not in resp_json:
                     self.logger.error(f"Unexpected Ollama response: {resp_json}")
                     return ""
-                return resp_json["response"]
+                text = resp_json["response"]
+                # Strip any residual <think>...</think> blocks (safety net for models that ignore think:false)
+                text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+                return text
             else:
                 self.logger.error(f"Ollama API error: {response.status_code} - {response.text}")
                 return ""
@@ -250,9 +254,15 @@ class MediaPipeline:
         model = self.MODEL_MAP[language]["Refinement"]
         instruction = "auf Deutsch (in German language)" if language == "German" else "in English"
         prompt = (
-            f"Rewrite this {language} transcript into natural, idiomatic, grammatically correct {language} language. "
-            f"DO NOT translate to any other language. Your output MUST be {instruction}. "
-            f"Keep all meaning intact.\n\n{text}"
+            f"Lightly edit this {language} transcript for readability. "
+            f"Fix only: run-on sentences, missing punctuation, obvious grammar errors, and awkward line breaks. "
+            f"STRICT RULES — you MUST follow all of these:\n"
+            f"- DO NOT add, invent, or substitute any words, names, or phrases not in the original.\n"
+            f"- DO NOT paraphrase, summarize, or change the meaning of any sentence.\n"
+            f"- DO NOT translate. Your output MUST be {instruction}.\n"
+            f"- Preserve all proper nouns, technical terms, product names, and gender-inclusive spellings exactly as written.\n"
+            f"- If a sentence is already clear, copy it unchanged.\n"
+            f"Output the edited transcript only, no commentary.\n\n{text}"
         )
         return self.ollama_generate(model, prompt)
 
@@ -477,30 +487,21 @@ class MediaPipeline:
 
     def generate_questions(self, text: str, language: str) -> str:
         model = self.MODEL_MAP[language]["Questions"]
-        base_prompt = (
+        prompt = (
             f"Analyze this {language} transcript and generate questions NOT answered in the content. "
             "ONLY include questions where the answer is NOT explicitly stated. "
             "Focus on: information gaps, logical next steps, implied assumptions. "
-            f"Return 10-20 numbered questions in {language}."
-        )
-        prompt = f"{base_prompt}\n\n{text}"
-        return self.ollama_generate(model, prompt)
-
-    def generate_answers(self, text: str, questions: str, language: str) -> str:
-        model = self.MODEL_MAP[language]["Answers"]
-        prompt = (
-            f"Answer these questions based ONLY on the transcript. If unclear, propose hypotheses. "
-            f"Format: Q1: [question] A1: [answer]\n\n--- TRANSCRIPT ---\n{text}\n\n--- QUESTIONS ---\n{questions}"
+            f"Return 10-20 numbered questions in {language}.\n\n{text}"
         )
         return self.ollama_generate(model, prompt)
 
     def compose_insight_report(self, base_dir: Path, base_name: str, language: str) -> str:
         """Aggregate all artifacts into one report."""
         files = {
-            "Summary": base_dir / f"{base_name}_summary.txt",
-            "Audit": base_dir / f"{base_name}_audit.md",
-            "Questions": base_dir / f"{base_name}_questions.txt",
-            "Answers": base_dir / f"{base_name}_answers.txt"
+            "Summary": base_dir / f"{base_name}_refined_summary.txt",
+            "Audit": base_dir / f"{base_name}_refined_audit.md",
+            "Questions": base_dir / f"{base_name}_refined_questions.txt",
+            "Answers": base_dir / f"{base_name}_refined_answers.txt"
         }
         
         report = [
@@ -876,17 +877,21 @@ class MediaPipeline:
             elif raw_text:
                 notify("correcting")
                 corrected = self.correct_text(raw_text, language)
-                clean_path.write_text(corrected, encoding="utf-8")
+                if corrected:
+                    clean_path.write_text(corrected, encoding="utf-8")
+                else:
+                    self.logger.warning("Correction returned empty — Ollama may have failed silently")
             else:
                  # Try load if exists even if we didn't just generate it
                  if clean_path.exists(): corrected = clean_path.read_text(encoding="utf-8")
+        if corrected: notify("correction_complete", {"clean_text": corrected})
 
         # 5. Refinement
         refined_path = output_dir / f"{base_name}_refined.txt"
         refined = ""
-        
+
         check_cancel()
-        
+
         if should_correct: # Linked to correction often, but could be separate. The PS keeps them somewhat tied or sequentiual.
             if skip_existing and refined_path.exists():
                 notify("skipping_refinement")
@@ -897,10 +902,7 @@ class MediaPipeline:
                 refined_path.write_text(refined, encoding="utf-8")
             else:
                 if refined_path.exists(): refined = refined_path.read_text(encoding="utf-8")
-        
-        if refined:
-            # Send both refined and corrected generic event or specific
-            notify("refinement_complete", {"refined_text": refined, "clean_text": corrected})
+        if refined: notify("refinement_complete", {"refined_text": refined})
 
         # 6. Netflix Subtitles
         check_cancel()
@@ -921,6 +923,9 @@ class MediaPipeline:
         # 7. Analysis
         notify("analyzing")
         
+        # Best available text for analysis stages (refined → corrected → raw as fallback)
+        analysis_text = refined or corrected or raw_text
+
         # Audit
         check_cancel()
         if should_audit:
@@ -928,11 +933,11 @@ class MediaPipeline:
             audit = ""
             if skip_existing and audit_path.exists():
                 audit = audit_path.read_text(encoding="utf-8")
-            elif refined:
-                audit = self.generate_audit(refined, language)
+            elif analysis_text:
+                audit = self.generate_audit(analysis_text, language)
                 audit_path.write_text(audit, encoding="utf-8")
             if audit: notify("audit_complete", {"audit": audit})
-        
+
         # Summary (Usually part of insights/general analysis)
         check_cancel()
         if should_insights:
@@ -940,11 +945,11 @@ class MediaPipeline:
             summary = ""
             if skip_existing and summary_path.exists():
                 summary = summary_path.read_text(encoding="utf-8")
-            elif refined:
-                summary = self.generate_summary(refined, language)
+            elif analysis_text:
+                summary = self.generate_summary(analysis_text, language)
                 summary_path.write_text(summary, encoding="utf-8")
             if summary: notify("summary_complete", {"summary": summary})
-        
+
         # Questions
         check_cancel()
         questions_path = output_dir / f"{base_name}_refined_questions.txt"
@@ -952,22 +957,11 @@ class MediaPipeline:
         if should_qa:
             if skip_existing and questions_path.exists():
                 questions = questions_path.read_text(encoding="utf-8")
-            elif refined:
-                questions = self.generate_questions(refined, language)
+            elif analysis_text:
+                questions = self.generate_questions(analysis_text, language)
                 questions_path.write_text(questions, encoding="utf-8")
             if questions: notify("questions_complete", {"questions": questions})
-        
-        # Answers
-        check_cancel()
-        if should_qa and questions: # Answers depend on QA
-            answers_path = output_dir / f"{base_name}_refined_answers.txt"
-            answers = ""
-            if skip_existing and answers_path.exists():
-                answers = answers_path.read_text(encoding="utf-8")
-            elif refined:
-                answers = self.generate_answers(refined, questions, language)
-                answers_path.write_text(answers, encoding="utf-8")
-            if answers: notify("answers_complete", {"answers": answers})
+
 
         # 8. Compose Final Report
         check_cancel()
@@ -975,6 +969,12 @@ class MediaPipeline:
             notify("composing")
             insights = self.compose_insight_report(output_dir, base_name, language)
             (output_dir / f"{base_name}_insights.md").write_text(insights, encoding="utf-8")
+            if insights: notify("insights_complete", {"insights": insights})
+
+        # Resolve optional VLM artifact paths — only include if files actually exist
+        visual_json_path = output_dir / "visual.json"
+        merged_json_path = output_dir / "merged.json"
+        pdf_report_path = output_dir / "report.pdf"
 
         final_result = {
             "status": "completed",
@@ -992,7 +992,10 @@ class MediaPipeline:
                 f"{base_name}_speakers.json",
                 f"{base_name}_speaker_transcript.txt",
                 f"{base_name}_speaker_transcript.srt"
-            ]
+            ],
+            "visual_json_path": str(visual_json_path) if visual_json_path.exists() else None,
+            "merged_json_path": str(merged_json_path) if merged_json_path.exists() else None,
+            "pdf_report_path": str(pdf_report_path) if pdf_report_path.exists() else None,
         }
         notify("complete", final_result)
         return final_result

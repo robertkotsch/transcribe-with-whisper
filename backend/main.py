@@ -70,7 +70,6 @@ def process_media_task(job_id: str, file_path: str, options: Dict[str, bool] = N
             if "audit" in data: jobs[job_id]["result"]["audit"] = data["audit"]
             if "summary" in data: jobs[job_id]["result"]["summary"] = data["summary"]
             if "questions" in data: jobs[job_id]["result"]["questions"] = data["questions"]
-            if "answers" in data: jobs[job_id]["result"]["answers"] = data["answers"]
             
             # Additional Artifacts
             if "srt" in data: jobs[job_id]["result"]["srt"] = data["srt"]
@@ -79,6 +78,10 @@ def process_media_task(job_id: str, file_path: str, options: Dict[str, bool] = N
             if "netflix_srt" in data: jobs[job_id]["result"]["netflix_srt"] = data["netflix_srt"]
             if "speaker_transcript" in data: jobs[job_id]["result"]["speaker_transcript"] = data["speaker_transcript"]
             if "num_speakers" in data: jobs[job_id]["result"]["num_speakers"] = data["num_speakers"]
+            if "insights" in data: jobs[job_id]["result"]["insights"] = data["insights"]
+            if "visual_json_path" in data: jobs[job_id]["result"]["visual_json_path"] = data["visual_json_path"]
+            if "merged_json_path" in data: jobs[job_id]["result"]["merged_json_path"] = data["merged_json_path"]
+            if "pdf_report_path" in data: jobs[job_id]["result"]["pdf_report_path"] = data["pdf_report_path"]
             
             # VLM Visual Analysis Stats
             if "scenes_detected" in data or "keyframes_analyzed" in data or "corrections_made" in data or "visual_terms" in data:

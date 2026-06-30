@@ -12,6 +12,7 @@ function App() {
 
   // Options State
   const [showOptions, setShowOptions] = useState(false)
+  const [showExports, setShowExports] = useState(false)
   const [options, setOptions] = useState({
     skip_existing: false,
     run_transcription: true,
@@ -329,7 +330,7 @@ function App() {
                   </label>
                   <label className="checkbox-item">
                     <input type="checkbox" checked={options.run_qa} onChange={e => setOptions({ ...options, run_qa: e.target.checked })} />
-                    Generate Q&A
+                    Open Questions
                   </label>
                   <label className="checkbox-item">
                     <input type="checkbox" checked={options.run_insights} onChange={e => setOptions({ ...options, run_insights: e.target.checked })} />
@@ -467,9 +468,16 @@ function App() {
                 <div className="report-header">
                   <div>
                     <h2>{selectedJob.file_path?.split('\\').pop() || selectedJob.file_path || 'Unknown'}</h2>
-                    {selectedJob.result?.language && (
-                      <span className="lang-badge">{selectedJob.result.language}</span>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      {selectedJob.result?.language && (
+                        <span className="lang-badge">{selectedJob.result.language}</span>
+                      )}
+                      {selectedJob.result?.vlm_stats && (
+                        <span style={{ fontSize: '0.75rem', opacity: 0.6, color: '#a5f3fc' }}>
+                          {selectedJob.result.vlm_stats.scenes_detected || 0} scenes · {selectedJob.result.vlm_stats.keyframes_analyzed || 0} keyframes · {selectedJob.result.vlm_stats.corrections_made || 0} corrections
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {selectedJob.status === 'processing' && (
                     <button
@@ -482,10 +490,14 @@ function App() {
                 </div>
 
                 {/* Active Preview Content */}
-                {/* Show spinner only if processing AND no preview data yet */}
+                {/* Show rings-loader only if processing AND no preview data yet */}
                 {(selectedJob.status === 'processing' || selectedJob.status === 'cancelling') && !previewData ? (
                   <div className="processing-state">
-                    <Activity size={48} className="icon-pulse" />
+                    <div className="rings-loader">
+                      <div className="ring ring-1"></div>
+                      <div className="ring ring-2"></div>
+                      <div className="ring ring-3"></div>
+                    </div>
                     <h3>
                       {selectedJob.status === 'cancelling'
                         ? "Stopping..."
@@ -539,173 +551,132 @@ function App() {
               <div className="documents-section">
                 <h3>Result Documents</h3>
                 <div className="results-grid">
-                  {/* Refined Text Card */}
-                  {/* Raw Transcript Card */}
-                  {(selectedJob.result?.raw_text) && (
+
+                  {/* 1. Transcript — best available (Refined → Corrected → Raw) */}
+                  {(selectedJob.result?.refined_text || selectedJob.result?.clean_text || selectedJob.result?.raw_text) && (
                     <ResultCard
-                      title="Raw TXT"
-                      description="Original whisper transcription output"
-                      content={selectedJob.result.raw_text}
-                      onShow={() => setPreviewData({ title: "Raw Transcript", content: selectedJob.result.raw_text })}
+                      title="Transcript"
+                      badge={selectedJob.result?.refined_text ? 'Refined' : selectedJob.result?.clean_text ? 'Corrected' : 'Raw'}
+                      description="Best available transcript"
+                      content={selectedJob.result?.refined_text || selectedJob.result?.clean_text || selectedJob.result?.raw_text}
+                      onShow={() => {
+                        const text = selectedJob.result?.refined_text || selectedJob.result?.clean_text || selectedJob.result?.raw_text
+                        const stage = selectedJob.result?.refined_text ? 'Refined' : selectedJob.result?.clean_text ? 'Corrected' : 'Raw'
+                        setPreviewData({ title: `Transcript · ${stage}`, content: text })
+                      }}
                     />
                   )}
 
-                  {/* Corrected Transcript Card */}
-                  {(selectedJob.result?.clean_text) && (
-                    <ResultCard
-                      title="Clean TXT"
-                      description="Corrected grammar and punctuation"
-                      content={selectedJob.result.clean_text}
-                      onShow={() => setPreviewData({ title: "Corrected Transcript", content: selectedJob.result.clean_text })}
-                    />
-                  )}
-
-                  {/* Refined Text Card */}
-                  {selectedJob.result?.refined_text && (
-                    <ResultCard
-                      title="Refined TXT"
-                      description="Polished for readability and flow"
-                      content={selectedJob.result.refined_text}
-                      onShow={() => setPreviewData({ title: "Refined Transcript", content: selectedJob.result.refined_text })}
-                    />
-                  )}
-
-                  {/* Summary Card */}
+                  {/* 2. Summary */}
                   {selectedJob.result?.summary && (
                     <ResultCard
                       title="Summary"
-                      description="Executive overview of key points"
+                      description="Key points at a glance"
                       content={selectedJob.result.summary}
-                      onShow={() => setPreviewData({ title: "Executive Summary", content: selectedJob.result.summary })}
+                      onShow={() => setPreviewData({ title: "Summary", content: selectedJob.result.summary })}
                     />
                   )}
 
-                  {/* Audit Card */}
+                  {/* 3. Audit */}
                   {selectedJob.result?.audit && (
                     <ResultCard
                       title="Audit"
-                      description="Content quality and accuracy report"
+                      description="Clarity, tone and bias analysis"
                       content={selectedJob.result.audit}
                       onShow={() => setPreviewData({ title: "Content Audit", content: selectedJob.result.audit })}
                     />
                   )}
 
-                  {/* Q&A Card */}
+                  {/* 4. Open Questions */}
                   {selectedJob.result?.questions && (
                     <ResultCard
-                      title="QA"
-                      description="Generated comprehension questions"
+                      title="Open Questions"
+                      description="Information gaps and follow-up questions"
                       content={selectedJob.result.questions}
-                      onShow={() => setPreviewData({ title: "Generated Questions", content: selectedJob.result.questions })}
+                      onShow={() => setPreviewData({ title: "Open Questions", content: selectedJob.result.questions })}
                     />
                   )}
 
-                  {selectedJob.result?.answers && (
+                  {/* 5. Subtitles — best available (Netflix SRT → SRT → VTT) */}
+                  {(selectedJob.result?.netflix_srt || selectedJob.result?.srt || selectedJob.result?.vtt) && (
                     <ResultCard
-                      title="Answers"
-                      description="AI-generated answers to questions"
-                      content={selectedJob.result.answers}
-                      onShow={() => setPreviewData({ title: "AI Answers", content: selectedJob.result.answers })}
+                      title="Subtitles"
+                      badge={selectedJob.result?.netflix_srt ? 'Netflix SRT' : selectedJob.result?.srt ? 'SRT' : 'VTT'}
+                      description="Best available subtitle format"
+                      content={selectedJob.result?.netflix_srt || selectedJob.result?.srt || selectedJob.result?.vtt}
+                      onShow={() => {
+                        const sub = selectedJob.result?.netflix_srt || selectedJob.result?.srt || selectedJob.result?.vtt
+                        const fmt = selectedJob.result?.netflix_srt ? 'Netflix SRT' : selectedJob.result?.srt ? 'SRT' : 'VTT'
+                        setPreviewData({ title: `Subtitles · ${fmt}`, content: "```\n" + sub + "\n```" })
+                      }}
                     />
                   )}
 
-                  {/* Additional Artifacts Cards */}
-                  {selectedJob.result?.json && (
-                    <ResultCard
-                      title="JSON"
-                      description="Full analysis data structure"
-                      content={selectedJob.result.json}
-                      onShow={() => setPreviewData({ title: "Raw JSON Data", content: "```json\n" + selectedJob.result.json + "\n```" })}
-                    />
-                  )}
-
-                  {selectedJob.result?.vtt && (
-                    <ResultCard
-                      title="VTT"
-                      description="Web Video Text Tracks subtitles"
-                      content={selectedJob.result.vtt}
-                      onShow={() => setPreviewData({ title: "WebVTT Subtitles", content: "```vtt\n" + selectedJob.result.vtt + "\n```" })}
-                    />
-                  )}
-
-                  {selectedJob.result?.srt && (
-                    <ResultCard
-                      title="SRT"
-                      description="Standard SubRip subtitle file"
-                      content={selectedJob.result.srt}
-                      onShow={() => setPreviewData({ title: "SRT Subtitles", content: "```srt\n" + selectedJob.result.srt + "\n```" })}
-                    />
-                  )}
-
-                  {selectedJob.result?.netflix_srt && (
-                    <ResultCard
-                      title="Netflix SRT"
-                      description="Netflix-compliant subtitle format"
-                      content={selectedJob.result.netflix_srt}
-                      onShow={() => setPreviewData({ title: "Netflix-Compliant Subtitles", content: "```srt\n" + selectedJob.result.netflix_srt + "\n```" })}
-                    />
-                  )}
-
-                  {/* Speaker Transcript Card */}
+                  {/* 6. Speaker Transcript */}
                   {selectedJob.result?.speaker_transcript && (
                     <ResultCard
                       title="Speaker Transcript"
-                      description={`Multi-speaker content (${selectedJob.result?.num_speakers || 1} speakers)`}
+                      badge={`${selectedJob.result?.num_speakers || 1} speakers`}
+                      description="Speaker-labeled dialogue"
                       content={selectedJob.result.speaker_transcript}
-                      onShow={() => setPreviewData({
-                        title: "Speaker-Labeled Transcript",
-                        content: selectedJob.result.speaker_transcript
-                      })}
+                      onShow={() => setPreviewData({ title: "Speaker Transcript", content: selectedJob.result.speaker_transcript })}
                     />
                   )}
 
-                  {/* VLM Visual Analysis Card */}
-                  {selectedJob.result?.vlm_stats && (
-                    <ResultCard
-                      title="Visual Analysis"
-                      description={`${selectedJob.result.vlm_stats.scenes_detected || 0} scenes, ${selectedJob.result.vlm_stats.corrections_made || 0} corrections`}
-                      content={`Analyzed ${selectedJob.result.vlm_stats.keyframes_analyzed || 0} keyframes, extracted ${selectedJob.result.vlm_stats.visual_terms || 0} visual terms`}
-                      onShow={() => setPreviewData({
-                        title: "VLM Visual Analysis",
-                        content: `## Visual Analysis Results\n\n- **Scenes Detected:** ${selectedJob.result.vlm_stats.scenes_detected || 0}\n- **Keyframes Analyzed:** ${selectedJob.result.vlm_stats.keyframes_analyzed || 0}\n- **Visual Terms Extracted:** ${selectedJob.result.vlm_stats.visual_terms || 0}\n- **Transcript Corrections:** ${selectedJob.result.vlm_stats.corrections_made || 0}\n\n*Check output folder for detailed visual.json and corrections.json*`
-                      })}
-                    />
-                  )}
-
-                  {/* Merged Data Card */}
-                  {selectedJob.result?.output_dir && (
-                    <ResultCard
-                      title="Merged Data"
-                      description="JSON with all combined data"
-                      content="Extended analysis data including subtitles, visual tags, and metadata."
-                      onShow={() => handleFilePreview('json', selectedJob.result.output_dir + '\\merged.json', 'Merged Data')}
-                    />
-                  )}
-
-                  {/* Visual JSON Card */}
-                  {selectedJob.result?.output_dir && (
-                    <ResultCard
-                      title="Visual Data"
-                      description="Raw visual analysis JSON"
-                      content="Detailed VLM analysis data including scenes, keyframes, and descriptions."
-                      onShow={() => handleFilePreview('json', selectedJob.result.output_dir + '\\visual.json', 'Visual Data')}
-                    />
-                  )}
-
-                  {/* PDF Report Card */}
-                  {selectedJob.result?.output_dir && (
+                  {/* 7. PDF Report */}
+                  {selectedJob.result?.pdf_report_path && (
                     <ResultCard
                       title="PDF Report"
-                      description="Visual summary report"
+                      description="Visual report with keyframes"
                       content="Formatted PDF report with keyframes and extracted insights."
-                      onShow={() => handleFilePreview('pdf', selectedJob.result.output_dir + '\\report.pdf', 'PDF Report')}
+                      onShow={() => handleFilePreview('pdf', selectedJob.result.pdf_report_path, 'PDF Report')}
                     />
                   )}
                 </div>
 
+                {/* Export Files — collapsible developer artifacts */}
+                {(selectedJob.result?.json || selectedJob.result?.merged_json_path || selectedJob.result?.visual_json_path) && (
+                  <div style={{ marginTop: '1.5rem' }}>
+                    <button
+                      className="btn-toggle"
+                      onClick={() => setShowExports(!showExports)}
+                      style={{ fontSize: '0.78rem', opacity: 0.6 }}
+                    >
+                      {showExports ? '▾ Hide Export Files' : '▸ Export Files'}
+                    </button>
+                    {showExports && (
+                      <div className="results-grid" style={{ marginTop: '0.75rem' }}>
+                        {selectedJob.result?.json && (
+                          <ResultCard
+                            title="JSON"
+                            description="Full Whisper analysis data"
+                            content={selectedJob.result.json}
+                            onShow={() => setPreviewData({ title: "Raw JSON", content: "```json\n" + selectedJob.result.json + "\n```" })}
+                          />
+                        )}
+                        {selectedJob.result?.merged_json_path && (
+                          <ResultCard
+                            title="Merged Data"
+                            description="Combined transcript + visual JSON"
+                            content="All analysis data in one structure."
+                            onShow={() => handleFilePreview('json', selectedJob.result.merged_json_path, 'Merged Data')}
+                          />
+                        )}
+                        {selectedJob.result?.visual_json_path && (
+                          <ResultCard
+                            title="Visual Data"
+                            description="Raw VLM scene analysis JSON"
+                            content="Detailed keyframe descriptions and OCR output."
+                            onShow={() => handleFilePreview('json', selectedJob.result.visual_json_path, 'Visual Data')}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {selectedJob.result?.output_dir && (
-                  <div className="results-container" style={{ marginTop: '2rem' }}>
+                  <div className="results-container" style={{ marginTop: '1.5rem' }}>
                     <div className="artifact-links">
                       <p><strong>Output Location:</strong></p>
                       <code style={{ fontSize: '0.8rem', opacity: 0.7 }}>{selectedJob.result.output_dir}</code>
@@ -729,14 +700,28 @@ function App() {
   )
 }
 
-function ResultCard({ title, description, content, onShow }) {
-  // Clean up content for teaser (remove markdown roughly)
+function ResultCard({ title, badge, description, content, onShow }) {
   const cleanContent = content ? content.replace(/[#*`]/g, '').trim() : ""
 
   return (
     <div className="result-card-wrapper">
       <div className="result-card">
-        <div className="card-title">{title}</div>
+        <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {title}
+          {badge && (
+            <span style={{
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              padding: '1px 6px',
+              borderRadius: '4px',
+              background: 'rgba(0, 242, 255, 0.15)',
+              color: '#00f2ff',
+              border: '1px solid rgba(0, 242, 255, 0.3)',
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+            }}>{badge}</span>
+          )}
+        </div>
         {description && <div className="card-desc">{description}</div>}
         <div className="card-content-preview">
           {cleanContent}
