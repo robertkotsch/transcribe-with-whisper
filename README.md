@@ -1,169 +1,123 @@
 # AI Media Intelligence Pipeline
 
-Automated transcription, translation, and AI-powered content analysis for video files.
+Automated transcription and AI-powered content analysis for video files. Runs 100% locally — Whisper, Ollama, and NeMo on your own hardware, no cloud calls.
 
-## Features
+## Two Apps in This Repo
 
-- **Whisper Transcription**: GPU-accelerated speech-to-text (English & German)
-- **Grammar Correction**: Two-stage correction and refinement
-- **Netflix-Style Subtitles**: Auto-formatted .srt files (42 chars/line, 2 lines max)
-- **Content Audit**: Analyzes clarity, tone, bias, information level
-- **Q&A Generation**: Creates unanswered questions + AI-generated answers
-- **Insight Reports**: Consolidated analysis reports (TXT or Markdown)
-- **Language Detection**: Auto-detects German/English from Whisper output
+| | V2 Web App (primary) | Legacy Script |
+|---|---|---|
+| **Interface** | Browser UI | PowerShell CLI |
+| **Entry point** | `Start-App.bat` | `Transcribe-Folder.ps1` |
+| **Status** | Actively developed | Stable, not extended |
 
-## Prerequisites
+---
 
-- **Python** with `whisper-ctranslate2` installed (`pip install whisper-ctranslate2`) — a faster-whisper/CTranslate2-based CLI, compatible with the original `openai-whisper` CLI flags
-- **ffmpeg** (audio extraction)
-- **Ollama** with the models for your GPU's VRAM tier (see [GPU Auto-Detection](#gpu-auto-detection) below) — pull whichever of `qwen3:32b`, `qwen3:14b`, `qwen3:8b`, `qwen3:4b`, `mistral-small3.2`, `gemma3:12b`, `gemma3:4b` apply to your hardware
-- **CUDA-capable GPU** (recommended for Whisper; falls back to CPU automatically if none is detected)
+## V2 Web App
 
-## GPU Auto-Detection
+### Prerequisites
 
-The script detects available VRAM at startup via `nvidia-smi` and automatically picks a model tier — no manual editing needed when moving between machines (e.g. a desktop RTX 4090 and a laptop with a smaller/no GPU):
+| Tool | Notes |
+|------|-------|
+| **Python 3.11** | `py install 3.11` if missing |
+| **Node.js** (LTS) | Includes `corepack` (manages pnpm) |
+| **ffmpeg** | `winget install ffmpeg` — must be in PATH |
+| **Ollama** | Running, with tier models pulled (see below) |
+| **CUDA GPU** | Recommended; falls back to CPU |
 
-| Detected VRAM | Whisper | Correction | Refinement/Audit/QA/Summary |
-|---------------|---------|------------|------------------------------|
-| ≥ 20 GB | `large-v3-turbo` (CUDA) | `qwen3:32b` | `mistral-small3.2` |
-| ≥ 12 GB | `large-v3-turbo` (CUDA) | `qwen3:14b` | `gemma3:12b` |
-| ≥ 8 GB | `large-v3-turbo` (CUDA) | `qwen3:8b` | `gemma3:4b` |
-| ≥ 4 GB | `medium` (CUDA) | `qwen3:4b` | `qwen3:4b` |
-| < 4 GB / no NVIDIA GPU | `small` (CPU) | `qwen3:4b` | `qwen3:4b` |
-
-If `nvidia-smi` isn't available (e.g. an AMD/Intel GPU) or you want to force a tier, pass `-VramOverrideGB <number>`:
+### Quick Start
 
 ```powershell
-.\Transcribe-Folder.ps1 "C:\Temp\Media" -VramOverrideGB 8
+# Double-click Start-App.bat  — or from a terminal:
+.\Start-App.bat
 ```
 
-## Quick Start
+Opens at **http://localhost:5173**. Backend runs on **:8000**.
+
+The launcher script will:
+- Require Python 3.11 (fails fast with install instructions if missing)
+- Create / repair the `.venv` automatically
+- Install / sync frontend dependencies via pnpm
+- Check for ffmpeg before starting anything
+
+### GPU Tiers
+
+Model selection is driven by `backend/models.config.json` (single source of truth). The backend reads VRAM at startup and picks the matching tier automatically:
+
+| VRAM | Whisper | Text (LLM) | VLM |
+|------|---------|------------|-----|
+| ≥ 20 GB | turbo | qwen3.6:27b | qwen3-vl:8b |
+| ≥ 16 GB | turbo | qwen3.5:9b  | qwen3-vl:8b |
+| ≥ 12 GB | turbo | qwen3.5:9b  | qwen3-vl:4b |
+| ≥ 8 GB  | turbo | qwen3.5:4b  | qwen3-vl:4b |
+| ≥ 4 GB  | small | qwen3.5:2b  | qwen3-vl:2b |
+| CPU     | small | qwen3.5:2b  | qwen3-vl:2b |
+
+Pull the models for your tier before first run:
 
 ```powershell
-cd C:\whisper
+.\Update-Models.ps1
+```
+
+### Features
+
+- **Whisper transcription** — GPU-accelerated, auto-detects German/English
+- **Visual analysis** — scene detection, keyframe extraction, EasyOCR + VLM descriptions
+- **Transcript enhancement** — VGPA correction engine fuses OCR/VLM visual terms with phonetics
+- **Speaker diarization** — NeMo `ClusteringDiarizer` (optional, opt-in)
+- **Netflix subtitles** — 42 chars/line, 2 lines max
+- **Content audit, Q&A, insights** — single LLM used for all text stages
+- **PDF + JSON reports** — per-video output folder
+
+### Pipeline Stages (all toggleable in UI)
+
+`audio extract → Whisper → VLM (scene/OCR/description) → diarization → correction → refinement → subtitles → audit/Q&A/summary → insights`
+
+### Output
+
+Per input `video.mp4` the pipeline writes a sibling folder `video/` with `.wav`, raw/clean/refined transcripts, `.srt`/`.vtt`/Netflix `.srt`, `corrections.json`, `merged.json`, PDF report, audit/Q&A/summary, and speaker transcripts.
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `ffmpeg not found` | Install ffmpeg, add to PATH |
+| `Python 3.11 not found` | `py install 3.11` |
+| Vite doesn't start | Check `frontend/node_modules` — run `corepack pnpm install` in `frontend/` |
+| Pipeline fails mid-job | Check backend terminal for the actual error; Ollama must be running with models pulled |
+| CUDA not active | Start-App.ps1 repairs the torch build automatically on first run |
+
+---
+
+## Legacy Script (`Transcribe-Folder.ps1`)
+
+Self-contained PowerShell script using the `whisper-ctranslate2` CLI and `ollama` CLI directly. No server, no browser.
+
+### Prerequisites
+
+- `whisper-ctranslate2` (`pip install whisper-ctranslate2`)
+- `ffmpeg` in PATH
+- Ollama running with appropriate models
+
+### Quick Start
+
+```powershell
 .\Transcribe-Folder.ps1 "C:\Temp\Media"
 ```
 
-## Usage
-
-### Basic Commands
-
-| Command | Behavior |
-|---------|----------|
-| `.\Transcribe-Folder.ps1 "C:\Temp\Media"` | Full pipeline (all stages) |
-| `.\Transcribe-Folder.ps1 "C:\Temp\Media" -SkipExisting` | Skip existing outputs |
-| `.\Transcribe-Folder.ps1 "C:\Temp\Media" -MarkdownOutput` | Generate .md instead of .txt |
-
-### Stage Selection (run only specific stages)
+### Stage Flags
 
 | Flag | Stage |
 |------|-------|
-| `-OnlyTranscribe` | Whisper transcription only |
-| `-OnlyCorrect` | Grammar correction & refinement |
-| `-OnlySubtitles` | Netflix-style subtitle formatting |
-| `-OnlyAudit` | Content quality audit |
-| `-OnlyQA` | Question & answer generation |
+| `-OnlyTranscribe` | Whisper only |
+| `-OnlyCorrect` | Correction & refinement |
+| `-OnlySubtitles` | Netflix subtitle formatting |
+| `-OnlyAudit` | Content audit |
+| `-OnlyQA` | Q&A generation |
 | `-OnlyInsights` | Compile insight reports |
+| `-SkipExisting` | Skip already-processed files |
+| `-MarkdownOutput` | Output as `.md` instead of `.txt` |
 
-### Advanced Options
-
-| Flag | Description |
-|------|-------------|
-| `-HighQualityQuestions` | Two-stage validation for Q&A (slower, better) |
-| `-MarkdownOutput` | Output audit/QA/insights as Markdown |
-
-### Examples
-
-```powershell
-# Full pipeline with Markdown output
-.\Transcribe-Folder.ps1 "C:\Temp\Media" -MarkdownOutput
-
-# Generate Q&A with high quality validation
-.\Transcribe-Folder.ps1 "C:\Temp\Media" -OnlyQA -HighQualityQuestions
-
-# Create insights report from existing analysis files
-.\Transcribe-Folder.ps1 "C:\Temp\Media" -OnlyInsights
-
-# Re-run only subtitles and audit stages
-.\Transcribe-Folder.ps1 "C:\Temp\Media" -OnlySubtitles -OnlyAudit
-```
-
-## Output Files
-
-For each video file (e.g., `video.mp4`), the script creates a folder `video/` with:
-
-| File | Description |
-|------|-------------|
-| `video.wav` | Extracted audio (16kHz mono) |
-| `video.txt` | Raw Whisper transcript |
-| `video.srt` | Raw Whisper subtitles |
-| `video.json` | Whisper metadata (language, timing) |
-| `video_clean.txt` | Grammar-corrected transcript |
-| `video_refined.txt` | Idiomatic refinement (final) |
-| `video_netflix.srt` | Netflix-formatted subtitles |
-| `video_refined_audit.txt/.md` | Content quality analysis |
-| `video_refined_questions.txt/.md` | Unanswered questions |
-| `video_refined_answers.txt/.md` | AI-generated answers |
-| `video_refined_summary.txt` | 5-bullet-point summary |
-| `video_insights.txt/.md` | Consolidated insight report |
-
-## Pipeline Stages
-
-### 1. Transcription
-- Extracts audio with ffmpeg (16kHz mono WAV)
-- Runs Whisper (`large-v3-turbo` model, CUDA, via `whisper-ctranslate2`)
-- Outputs: `.txt`, `.srt`, `.json`
-
-### 2. Correction & Refinement
-- **Correction**: Grammar/spelling fixes (keeps original language)
-- **Refinement**: Idiomatic phrasing improvements
-- Uses `qwen3:32b` for correction (strong multilingual support for both German and English) and `mistral-small3.2` for refinement
-
-### 3. Subtitle Formatting
-- Reformats to Netflix standards
-- Max 42 chars/line, 2 lines max
-- 1-7 second duration per subtitle
-
-### 4. Content Audit
-- Analyzes: clarity, information density, tone, bias
-- Outputs structured report in source language
-
-### 5. Q&A Generation
-- **Questions**: Identifies gaps NOT answered in content
-- **Answers**: AI-generated responses based on transcript
-- Optional high-quality mode with validation
-
-### 6. Insight Compilation
-- Merges: summary, audit, questions, answers
-- Single consolidated report (TXT or Markdown)
-
-## Model Configuration
-
-`$ModelMap` is built automatically at startup from the VRAM tier table above — the same model is used for both German and English at each tier, since `qwen3`/`gemma3`/`mistral-small3.2` are all strong multilingual models. To override a specific stage's model regardless of tier, edit `$ModelMap` directly after it's built, or adjust the tier table in the script (search for `Get-GpuVramGB`).
-
-## Troubleshooting
-
-### Refined transcript is in wrong language
-- Check Whisper's language detection in `.json` file
-- Ensure models support your language
-- Prompts explicitly prevent translation
-
-### Empty output files
-- Check Ollama is running: `ollama list`
-- Verify models are installed: `ollama pull mistral-small3.2`
-- Look for "WARNING: No output from Ollama" messages
-
-### Answers not generated
-- Ensure questions file exists first
-- Check file extension matches `-MarkdownOutput` setting
-- Look for "WARNING: Questions file not found" message
-
-## Performance Tips
-
-- Use `-SkipExisting` to avoid re-processing
-- Run stages separately for faster iterations
-- Use Whisper `large-v3` (non-turbo) if you need maximum accuracy and can tolerate ~6x slower transcription
-- Disable `-HighQualityQuestions` for standard Q&A (faster)
+---
 
 ## License
 
