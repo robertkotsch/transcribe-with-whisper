@@ -289,24 +289,36 @@ class MediaPipeline:
         # srt_path: .../name.srt -> json_path: .../name.json
         
         json_path = target_path.replace('.srt', '.json')
-        if not os.path.exists(json_path):
-             self.logger.warning(f"Source JSON not found at {json_path}, falling back to SRT parsing.")
-             # Fallback logic could go here or we just fail/return empty
-             # For now, let's assume JSON exists as per standard pipeline
-             return ""
 
         try:
             from pydantic import BaseModel, Field
             from typing import List, Optional
-            import json
-            import math
+            import json, math, re
 
-            # Load Whisper Raw JSON
-            with open(json_path, 'r', encoding='utf-8') as f:
-                whisper_data = json.load(f)
-            
-            segments = whisper_data.get('segments', [])
-            if not segments: return ""
+            # Load segments: prefer Whisper JSON, fall back to SRT parsing
+            if os.path.exists(json_path):
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    segments = json.load(f).get('segments', [])
+            else:
+                self.logger.warning(f"Source JSON not found at {json_path}, parsing SRT instead.")
+                def _ts(ts):
+                    h, m, s_ms = ts.split(':')
+                    s, ms = s_ms.split(',')
+                    return int(h)*3600 + int(m)*60 + int(s) + int(ms)/1000
+                tp = re.compile(r'(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})')
+                segments = []
+                for block in re.split(r'\n{2,}', Path(target_path).read_text(encoding='utf-8', errors='ignore').strip()):
+                    lines = block.strip().splitlines()
+                    for i, ln in enumerate(lines):
+                        m = tp.match(ln)
+                        if m:
+                            text = ' '.join(lines[i+1:]).strip()
+                            if text:
+                                segments.append({'start': _ts(m.group(1)), 'end': _ts(m.group(2)), 'text': text})
+                            break
+
+            if not segments:
+                return ""
 
             # --- NFLX-TT Schema Definition ---
             class Metadata(BaseModel):

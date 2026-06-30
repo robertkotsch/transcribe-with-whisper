@@ -82,7 +82,25 @@ if (-not (Test-Path "node_modules")) {
 }
 $frontendProcess = Start-Process -FilePath "pnpm.cmd" -ArgumentList "run dev" -PassThru -NoNewWindow
 
-Write-Host "All systems go!" -ForegroundColor Cyan
+# Wait until Vite actually listens on :5173 (up to 20 s) before declaring success
+$viteReady = $false
+Write-Host "Waiting for frontend on :5173..." -ForegroundColor Gray
+for ($i = 0; $i -lt 20; $i++) {
+    Start-Sleep -Seconds 1
+    try {
+        $tcp = [System.Net.Sockets.TcpClient]::new()
+        $tcp.Connect('127.0.0.1', 5173)
+        $tcp.Close()
+        $viteReady = $true
+        break
+    } catch { }
+}
+
+if ($viteReady) {
+    Write-Host "All systems go!" -ForegroundColor Cyan
+} else {
+    Write-Host "Warning: Frontend did not start on :5173 — check the Vite process." -ForegroundColor Yellow
+}
 Write-Host "OPEN BROWSER TO: http://localhost:5173" -ForegroundColor Yellow
 Write-Host "Press Ctrl+C to stop servers."
 
