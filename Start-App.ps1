@@ -26,22 +26,47 @@ if (-not (Test-Path "backend\services\pipeline.py")) {
 # Python Virtual Environment
 # ========================================
 $venvPath = ".venv"
-$pythonPath = "python" # Default fallback
-$pipPath = "pip"
+$pythonPath = "python"
 
-if (-not (Test-Path $venvPath)) {
-    Write-Host "Creating local virtual environment (.venv)..." -ForegroundColor Cyan
-    Start-Process -FilePath "python" -ArgumentList "-m venv $venvPath" -Wait -NoNewWindow
+# Resolve Python 3.11 (required — many deps have no wheels for newer versions)
+$basePython = $null
+foreach ($candidate in @(@("py", "-3.11"), @("python3.11"))) {
+    try {
+        $ver = & $candidate[0] $candidate[1..99] --version 2>&1
+        if ($ver -match "Python 3\.11") { $basePython = $candidate; break }
+    } catch {}
 }
+if (-not $basePython) {
+    Write-Host "Error: Python 3.11 not found. Run: py install 3.11" -ForegroundColor Red
+    exit 1
+}
+Write-Host ("Using " + (& $basePython[0] $basePython[1..99] --version 2>&1)) -ForegroundColor Cyan
 
-if (Test-Path "$venvPath\Scripts\python.exe") {
+# Create or repair the venv if missing or pointing to a different user's Python
+$needsVenv = $false
+if (-not (Test-Path "$venvPath\Scripts\python.exe")) {
+    $needsVenv = $true
+} else {
     $pythonPath = ".\$venvPath\Scripts\python.exe"
-    $pipPath = ".\$venvPath\Scripts\pip.exe"
-    Write-Host "Using virtual environment: $venvPath" -ForegroundColor Cyan
+    $pyTest = & $pythonPath -c "print('ok')" 2>&1
+    if ($pyTest -notcontains "ok") {
+        Write-Host "Venv broken (created by a different user). Recreating..." -ForegroundColor Yellow
+        Remove-Item -Recurse -Force $venvPath
+        $needsVenv = $true
+    }
 }
-else {
-    Write-Host "Warning: Virtual environment not found. Using global Python." -ForegroundColor Yellow
+
+if ($needsVenv) {
+    Write-Host "Creating virtual environment (.venv) with Python 3.11..." -ForegroundColor Cyan
+    & $basePython[0] $basePython[1..99] -m venv $venvPath
+    if (-not (Test-Path "$venvPath\Scripts\python.exe")) {
+        Write-Host "Error: Failed to create virtual environment." -ForegroundColor Red
+        exit 1
+    }
 }
+
+$pythonPath = ".\$venvPath\Scripts\python.exe"
+Write-Host "Using virtual environment: $venvPath" -ForegroundColor Cyan
 
 # Install Backend Dependencies
 if (Test-Path "backend\requirements.txt") {
@@ -49,14 +74,14 @@ if (Test-Path "backend\requirements.txt") {
 
     # Install requirements FIRST. A transitive dep (e.g. nemo) can pull a CPU-only
     # torch from PyPI, so the CUDA check/repair must run AFTER this, not before.
-    & $pipPath install -r backend\requirements.txt | Out-Null
+    & $pythonPath -m pip install -r backend\requirements.txt
 
     # Ensure a CUDA-enabled PyTorch build (driver supports CUDA 13.x -> cu130).
     $cudaAvailable = & $pythonPath -c "import torch; print(torch.cuda.is_available())" 2>$null
     if ($cudaAvailable -ne "True") {
         Write-Host "CUDA not active in torch. Installing CUDA build (cu130)..." -ForegroundColor Yellow
-        & $pipPath uninstall -y torch torchvision torchaudio
-        & $pipPath install torch==2.12.1 torchvision==0.27.1 --index-url https://download.pytorch.org/whl/cu130
+        & $pythonPath -m pip uninstall -y torch torchvision torchaudio
+        & $pythonPath -m pip install torch==2.12.1 torchvision==0.27.1 --index-url https://download.pytorch.org/whl/cu130
     }
     else {
         Write-Host "CUDA active in torch." -ForegroundColor Green
@@ -69,18 +94,42 @@ if (Test-Path "backend\requirements.txt") {
 
 # Start Backend
 Write-Host "Launching Backend (FastAPI)..." -ForegroundColor Green
-$backendProcess = Start-Process -FilePath $pythonPath -ArgumentList "-m uvicorn backend.main:app --reload --port 8000" -PassThru -NoNewWindow
+$backendProcess = Start-Process -FilePath $pythonPath -ArgumentList "-m uvicorn backend.main:app --reload --reload-dir backend --port 8000" -PassThru -NoNewWindow
 Start-Sleep -Seconds 2
 
 # Start Frontend
 Write-Host "Launching Frontend (Vite)..." -ForegroundColor Green
 Set-Location frontend
-# Ensure dependencies are installed (first run only)
-if (-not (Test-Path "node_modules")) {
-    Write-Host "Installing frontend dependencies..."
-    pnpm install
+
+# Suppress interactive prompts in pnpm and other Node.js tools
+$env:CI = "true"
+
+# Resolve pnpm: prefer direct pnpm.cmd, fall back to corepack
+if (Get-Command "pnpm.cmd" -ErrorAction SilentlyContinue) {
+    $pnpmExe = "pnpm.cmd"
+} elseif (Get-Command "corepack" -ErrorAction SilentlyContinue) {
+    Write-Host "pnpm.cmd not in PATH, using corepack pnpm..." -ForegroundColor Yellow
+    $pnpmExe = "corepack"
+} else {
+    Write-Host "Error: pnpm not found. Run: npm install -g pnpm" -ForegroundColor Red
+    exit 1
 }
-$frontendProcess = Start-Process -FilePath "pnpm.cmd" -ArgumentList "run dev" -PassThru -NoNewWindow
+
+# Always sync dependencies — fast no-op if up to date, repairs broken node_modules
+Write-Host "Syncing frontend dependencies..."
+if ($pnpmExe -eq "corepack") { & $pnpmExe pnpm install } else { & $pnpmExe install }
+
+# Launch Vite: use pnpm.cmd if available, otherwise invoke vite.cmd directly from node_modules
+if ($pnpmExe -eq "pnpm.cmd") {
+    $frontendProcess = Start-Process -FilePath "pnpm.cmd" -ArgumentList "run dev" -PassThru -NoNewWindow
+} else {
+    $viteCmd = "node_modules\.bin\vite.cmd"
+    if (-not (Test-Path $viteCmd)) {
+        Write-Host "Error: vite not found in node_modules. pnpm install may have failed." -ForegroundColor Red
+        exit 1
+    }
+    $frontendProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $viteCmd -PassThru -NoNewWindow
+}
 
 # Wait until Vite actually listens on :5173 (up to 20 s) before declaring success
 $viteReady = $false
@@ -99,7 +148,7 @@ for ($i = 0; $i -lt 20; $i++) {
 if ($viteReady) {
     Write-Host "All systems go!" -ForegroundColor Cyan
 } else {
-    Write-Host "Warning: Frontend did not start on :5173 — check the Vite process." -ForegroundColor Yellow
+    Write-Host "Warning: Frontend did not start on :5173 - check the Vite process." -ForegroundColor Yellow
 }
 Write-Host "OPEN BROWSER TO: http://localhost:5173" -ForegroundColor Yellow
 Write-Host "Press Ctrl+C to stop servers."
