@@ -170,7 +170,14 @@ class MediaPipeline:
             "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
             output_wav
         ]
-        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        except FileNotFoundError:
+            raise RuntimeError(
+                "ffmpeg not found. Install ffmpeg and add it to PATH: https://ffmpeg.org/download.html"
+            )
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"ffmpeg failed: {e.stderr.decode(errors='replace').strip()}")
 
     def transcribe(self, audio_path: str, output_dir: str) -> Dict[str, Any]:
         """Run Whisper transcription."""

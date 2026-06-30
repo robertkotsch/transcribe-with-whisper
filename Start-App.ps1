@@ -14,6 +14,10 @@ if (-not (Test-Path "backend\services\pipeline.py")) {
     Write-Host "Error: Backend files missing." -ForegroundColor Red
     exit
 }
+if (-not (Get-Command "ffmpeg" -ErrorAction SilentlyContinue)) {
+    Write-Host "Error: ffmpeg not found in PATH. Install from https://ffmpeg.org/download.html and add to PATH." -ForegroundColor Red
+    exit
+}
 
 # ========================================
 # VLM Note: OCR disabled
