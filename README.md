@@ -45,12 +45,14 @@ Model selection is driven by `backend/models.config.json` (single source of trut
 
 | VRAM | Whisper | Text (LLM) | VLM |
 |------|---------|------------|-----|
-| ≥ 20 GB | turbo | qwen3.6:27b | qwen3-vl:8b |
+| ≥ 20 GB | turbo | qwen3.8:27b | qwen3-vl:8b |
 | ≥ 16 GB | turbo | qwen3.5:9b  | qwen3-vl:8b |
 | ≥ 12 GB | turbo | qwen3.5:9b  | qwen3-vl:4b |
 | ≥ 8 GB  | turbo | qwen3.5:4b  | qwen3-vl:4b |
 | ≥ 4 GB  | small | qwen3.5:2b  | qwen3-vl:2b |
 | CPU     | small | qwen3.5:2b  | qwen3-vl:2b |
+
+The >=20 GB tier uses Qwen3.8-27B for text processing. Smaller tiers retain Qwen3.5 because the official Ollama Qwen3.8 library currently only provides the 27B size. Vision remains on Qwen3-VL. The 27B model download is approximately 18 GB; runtime VRAM requirements also depend on context length and other loaded models, so the tier threshold is not a guarantee that every workload fits entirely on the GPU.
 
 Pull the models for your tier before first run:
 
